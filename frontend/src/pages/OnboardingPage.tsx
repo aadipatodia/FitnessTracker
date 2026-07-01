@@ -39,6 +39,45 @@ function parseDateFromText(text: string): string | null {
   return null
 }
 
+function parseNutritionFromText(text: string): { calories?: number; protein?: number } {
+  const lowered = text.toLowerCase()
+  const result: { calories?: number; protein?: number } = {}
+
+  const calorieRange =
+    lowered.match(/(?:consume|eat|intake|have to consume)?\s*(\d{3,4})\s*(?:-|–|to)\s*(\d{3,4})\s*(?:cal(?:ories)?|kcal)\b/) ??
+    lowered.match(/(\d{3,4})\s*(?:-|–|to)\s*(\d{3,4})\s*(?:cal(?:ories)?|kcal)\b/)
+  if (calorieRange) {
+    const low = Number(calorieRange[1])
+    const high = Number(calorieRange[2])
+    if (low >= 800 && high <= 6000 && low <= high) {
+      result.calories = Math.round((low + high) / 2)
+    }
+  } else {
+    const singleCalorie = lowered.match(/\b(\d{3,4})\s*(?:cal(?:ories)?|kcal)\b/)
+    if (singleCalorie) {
+      const value = Number(singleCalorie[1])
+      if (value >= 800 && value <= 6000) result.calories = value
+    }
+  }
+
+  const proteinRange = lowered.match(/(\d{2,3})\s*(?:-|–|to)\s*(\d{2,3})\s*g?\s*protein/)
+  if (proteinRange) {
+    const low = Number(proteinRange[1])
+    const high = Number(proteinRange[2])
+    if (low >= 50 && high <= 400 && low <= high) {
+      result.protein = Math.round((low + high) / 2)
+    }
+  } else {
+    const singleProtein = lowered.match(/\b(\d{2,3})\s*g\s+protein/)
+    if (singleProtein) {
+      const value = Number(singleProtein[1])
+      if (value >= 50 && value <= 400) result.protein = value
+    }
+  }
+
+  return result
+}
+
 function weeksUntil(dateStr: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -337,6 +376,9 @@ export function OnboardingPage() {
                 <Button className="flex-1" onClick={() => {
                   const parsed = parseDateFromText(endGoal)
                   if (parsed && !targetDate) setTargetDate(parsed)
+                  const nutrition = parseNutritionFromText(endGoal)
+                  if (nutrition.calories) setTargetCalories(String(nutrition.calories))
+                  if (nutrition.protein) setTargetProtein(String(nutrition.protein))
                   setStep(2)
                 }} disabled={!endGoal.trim()}>
                   Continue

@@ -8,6 +8,7 @@ import google.generativeai as genai
 from dateutil import parser as date_parser
 
 from app.config import settings
+from app.services.goal_nutrition import apply_stated_nutrition_targets, parse_stated_nutrition_targets
 
 logger = logging.getLogger("gemini")
 
@@ -437,6 +438,12 @@ If the deadline is unrealistic, set realistic=false and intensity="extreme". Exp
 
 If no target_date, set realistic=true, intensity="none", and leave timeline fields empty strings.
 
+NUTRITION TARGET RULES (critical):
+- If end_goal states explicit daily calorie or protein targets, use those values — do NOT recalculate from TDEE or apply an extra deficit.
+- If they give a range (e.g. 2000-2200 calories), use the midpoint.
+- If they say calories are "after deficit" or "don't cut calories", their stated intake IS the final daily target — never reduce it further.
+- Only estimate target_calories/target_protein from body weight when the user did NOT specify their own numbers.
+
 Return ONLY valid JSON (no markdown):
 {{
   "realistic": boolean,
@@ -454,13 +461,14 @@ Return ONLY valid JSON (no markdown):
     )
 
     result["weeks_available"] = weeks if weeks is not None else 0
-    return result
+    return apply_stated_nutrition_targets(result, goal_data)
 
 
 def _fallback_goal_plan(goal_data: dict) -> dict:
     weight = goal_data.get("current_weight") or 75
     target_date = _parse_target_date(goal_data)
     weeks = _weeks_until(target_date) if target_date else None
+    stated = parse_stated_nutrition_targets(goal_data.get("end_goal"))
     return {
         "realistic": True,
         "intensity": "none",
@@ -471,8 +479,8 @@ def _fallback_goal_plan(goal_data: dict) -> dict:
         "projected_body_fat": None,
         "projected_weight": None,
         "projected_lift": None,
-        "target_calories": int(weight * 30),
-        "target_protein": int(weight * 1.8),
+        "target_calories": stated.get("target_calories") or int(weight * 30),
+        "target_protein": stated.get("target_protein") or int(weight * 1.8),
     }
 
 
