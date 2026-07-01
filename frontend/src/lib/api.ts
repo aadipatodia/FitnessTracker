@@ -24,19 +24,25 @@ class ApiClient {
 
     const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
 
-    if (res.status === 401) {
-      this.setToken(null)
-      window.location.href = '/login'
-      throw new Error('Unauthorized')
-    }
-
     if (res.status === 204) {
       return undefined as T
     }
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: 'Request failed' }))
-      throw new Error(err.detail || 'Request failed')
+      const message =
+        typeof err.detail === 'string'
+          ? err.detail
+          : Array.isArray(err.detail)
+            ? err.detail.map((e: { msg?: string }) => e.msg).filter(Boolean).join(', ') || 'Request failed'
+            : 'Request failed'
+
+      if (res.status === 401 && !path.startsWith('/auth/')) {
+        this.setToken(null)
+        window.location.href = '/login'
+      }
+
+      throw new Error(message)
     }
 
     return res.json()
