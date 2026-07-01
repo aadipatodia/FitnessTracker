@@ -139,7 +139,7 @@ export function DietPage() {
               <Card>
               <CardHeader className="pb-2">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-base capitalize">{log.meal_type || 'Meal'}</CardTitle>
+                  <CardTitle className="capitalize">{log.meal_type || 'Meal'}</CardTitle>
                   <div className="flex items-center gap-2">
                     <span className="text-meta">{formatDate(log.log_date)}</span>
                     <Button

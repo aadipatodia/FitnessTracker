@@ -141,7 +141,7 @@ export function DashboardPage() {
             <h2 className="text-xl font-semibold font-display text-foreground">Exercise Progress</h2>
             <Link
               to="/workout-graph"
-              className="text-sm text-primary hover:text-accent transition-colors font-medium"
+              className="text-base text-primary hover:text-accent transition-colors font-semibold"
             >
               Open workout graph →
             </Link>
@@ -173,7 +173,7 @@ function ChartCard({
     <ScrollReveal animation={animation} delay={revealDelay(index, 100)} className={className}>
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">{title}</CardTitle>
+          <CardTitle>{title}</CardTitle>
         </CardHeader>
         <CardContent>{children}</CardContent>
       </Card>

@@ -286,7 +286,7 @@ export function WorkoutsPage() {
               <Card>
               <CardHeader className="pb-2">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-base">{w.name || 'Workout'}</CardTitle>
+                  <CardTitle>{w.name || 'Workout'}</CardTitle>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-meta">{formatDate(w.workout_date)}</span>
                     {(w.calories_burned ?? 0) > 0 && (

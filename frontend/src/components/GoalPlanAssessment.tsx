@@ -75,7 +75,7 @@ export function GoalPlanAssessment({
             </h3>
             <div className="flex flex-wrap gap-2">
               {weeksUntilDeadline > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-background/60 px-2.5 py-0.5 text-xs font-medium text-foreground">
+                <span className="inline-flex items-center gap-1 rounded-full bg-background/60 px-2.5 py-1 text-sm font-medium text-foreground">
                   <Calendar className="h-3 w-3" />
                   {weeksUntilDeadline} week{weeksUntilDeadline !== 1 ? 's' : ''} left
                 </span>
@@ -83,7 +83,7 @@ export function GoalPlanAssessment({
               {intensityLabel && (
                 <span
                   className={cn(
-                    'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize',
+                    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-medium capitalize',
                     intensityStyles[feasibility.intensity] ?? intensityStyles.none,
                   )}
                 >

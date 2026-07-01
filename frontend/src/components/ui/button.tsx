@@ -16,7 +16,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       destructive: 'bg-destructive text-white hover:bg-destructive/90',
     }
     const sizes = {
-      sm: 'h-8 px-3 text-xs rounded-lg',
+      sm: 'h-9 px-3 text-sm rounded-lg',
       md: 'h-10 px-4 text-sm rounded-xl',
       lg: 'h-12 px-6 text-base rounded-xl',
     }
