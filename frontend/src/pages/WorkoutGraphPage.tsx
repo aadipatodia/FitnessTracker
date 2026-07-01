@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, DashboardCharts } from '@/lib/api'
 import { ExerciseProgressCharts } from '@/components/ExerciseProgressCharts'
+import { PageHeader } from '@/components/PageHeader'
 
 const PERIOD_OPTIONS = [
   { label: 'Last 30 days', value: 30 },
@@ -25,16 +26,14 @@ export function WorkoutGraphPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Workout Graph</h1>
-          <p className="text-muted-foreground">
-            Max weight per session for each exercise you log
-          </p>
-        </div>
+        <PageHeader
+          title="Workout Graph"
+          subtitle="Max weight per session for each exercise you log"
+        />
         <select
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm sm:w-auto"
+          className="w-full rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 sm:w-auto"
         >
           {PERIOD_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -44,7 +43,7 @@ export function WorkoutGraphPage() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="luxury-spinner" />
         </div>
       ) : (
         <ExerciseProgressCharts

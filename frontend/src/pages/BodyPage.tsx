@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { api, BodyMetric } from '@/lib/api'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,10 +57,7 @@ export function BodyPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Body Metrics</h1>
-        <p className="text-muted-foreground">Track weight and body fat over time</p>
-      </div>
+      <PageHeader title="Body Metrics" subtitle="Track weight and body fat over time" />
 
       <Card>
         <CardHeader>
@@ -92,7 +90,7 @@ export function BodyPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="luxury-spinner" />
         </div>
       ) : metrics.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">No metrics logged yet.</CardContent></Card>

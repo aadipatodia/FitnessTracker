@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AmbientBackground } from '@/components/AmbientBackground'
 
 type Step = 'request' | 'reset' | 'done'
 
@@ -60,17 +61,23 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
-            <Target className="h-7 w-7 text-primary" />
+    <div className="auth-bg relative flex min-h-screen items-center justify-center p-4">
+      <AmbientBackground />
+      <div className="auth-grid" aria-hidden="true" />
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-10 text-center animate-fade-up">
+          <div className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl animate-pulse-gold" />
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/30 to-primary/5 ring-1 ring-primary/30">
+              <Target className="h-8 w-8 text-primary" />
+            </div>
           </div>
-          <h1 className="text-3xl font-bold gradient-text">FitAI Coach</h1>
-          <p className="mt-2 text-muted-foreground">Reset your account password</p>
+          <h1 className="text-4xl font-bold gradient-text font-display">FitAI Coach</h1>
+          <p className="mt-3 text-sm text-muted-foreground">Reset your account password</p>
         </div>
 
-        <Card>
+        <Card className="animate-fade-up stagger-2 border-primary/20">
           <CardHeader>
             <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
               <KeyRound className="h-5 w-5 text-primary" />
@@ -185,7 +192,7 @@ export function ResetPasswordPage() {
             {step !== 'done' && (
               <p className="mt-4 text-center text-sm text-muted-foreground">
                 Remember your password?{' '}
-                <Link to="/login" className="text-primary hover:underline">
+                <Link to="/login" className="text-primary hover:text-accent transition-colors font-medium">
                   Sign in
                 </Link>
               </p>

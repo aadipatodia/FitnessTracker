@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Trash2, HeartPulse } from 'lucide-react'
 import { api, Workout, SetCreate, ActivityLog } from '@/lib/api'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -158,10 +159,7 @@ export function WorkoutsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Workouts</h1>
-          <p className="text-muted-foreground">Log exercises, sets, reps, and weights</p>
-        </div>
+        <PageHeader title="Workouts" subtitle="Log exercises, sets, reps, and weights" />
         <Button onClick={() => setShowForm(!showForm)} className="w-full sm:w-auto">
           <Plus className="h-4 w-4" />
           Log Workout
@@ -266,7 +264,7 @@ export function WorkoutsPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="luxury-spinner" />
         </div>
       ) : workouts.length === 0 ? (
         <Card>

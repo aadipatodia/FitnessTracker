@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Sparkles, Trash2 } from 'lucide-react'
 import { api, DietLog } from '@/lib/api'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input, Label, Select, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -60,10 +61,7 @@ export function DietPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Diet Log</h1>
-        <p className="text-muted-foreground">Type what you ate — AI estimates the macros</p>
-      </div>
+      <PageHeader title="Diet Log" subtitle="Type what you ate — AI estimates the macros" />
 
       {/* Today's summary */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
@@ -72,10 +70,12 @@ export function DietPage() {
           { label: 'Protein', value: Math.round(todayTotals.protein), unit: 'g' },
           { label: 'Carbs', value: Math.round(todayTotals.carbs), unit: 'g' },
           { label: 'Fat', value: Math.round(todayTotals.fat), unit: 'g' },
-        ].map(({ label, value, unit }) => (
-          <div key={label} className="rounded-xl border border-border bg-card p-4 text-center">
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="text-2xl font-bold">{value}<span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span></p>
+        ].map(({ label, value, unit }, i) => (
+          <div key={label} className={`luxury-card rounded-xl p-4 text-center animate-fade-up stagger-${Math.min(i + 1, 8)}`}>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+            <p className="text-2xl font-bold font-display gradient-text-subtle">
+              {value}<span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span>
+            </p>
           </div>
         ))}
       </div>
@@ -125,7 +125,7 @@ export function DietPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="luxury-spinner" />
         </div>
       ) : (
         <div className="space-y-4">

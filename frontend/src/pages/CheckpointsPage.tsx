@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { api, Checkpoint, DailyCheckpoints } from '@/lib/api'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -143,12 +144,10 @@ export function CheckpointsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Daily Checkpoints</h1>
-        <p className="text-muted-foreground">
-          Your checklist items stay the same every day — only checkmarks reset per date
-        </p>
-      </div>
+      <PageHeader
+        title="Daily Checkpoints"
+        subtitle="Your checklist items stay the same every day — only checkmarks reset per date"
+      />
 
       <Card>
         <CardHeader>
@@ -186,7 +185,7 @@ export function CheckpointsPage() {
 
           {loading ? (
             <div className="flex justify-center py-8">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <div className="luxury-spinner" />
             </div>
           ) : daily && daily.items.length > 0 ? (
             <ul className="space-y-2">

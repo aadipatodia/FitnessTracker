@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Brain, Sparkles, Calendar, TrendingUp, Target } from 'lucide-react'
 import { api, CoachingInsight } from '@/lib/api'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -231,10 +232,7 @@ export function CoachPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">AI Coach</h1>
-          <p className="text-muted-foreground">Personalized feedback powered by Gemini</p>
-        </div>
+        <PageHeader title="AI Coach" subtitle="Personalized feedback powered by Gemini" />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="space-y-1.5">
@@ -294,7 +292,7 @@ export function CoachPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="luxury-spinner" />
         </div>
       ) : !hasAnyInsights ? (
         <Card>

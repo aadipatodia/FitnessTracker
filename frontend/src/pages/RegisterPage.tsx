@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Target } from 'lucide-react'
+import { Target, Sparkles } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AmbientBackground } from '@/components/AmbientBackground'
 
 export function RegisterPage() {
   const [fullName, setFullName] = useState('')
@@ -30,17 +31,26 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
-            <Target className="h-7 w-7 text-primary" />
+    <div className="auth-bg relative flex min-h-screen items-center justify-center p-4">
+      <AmbientBackground />
+      <div className="auth-grid" aria-hidden="true" />
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-10 text-center animate-fade-up">
+          <div className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl animate-pulse-gold" />
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/30 to-primary/5 ring-1 ring-primary/30">
+              <Target className="h-8 w-8 text-primary" />
+            </div>
           </div>
-          <h1 className="text-3xl font-bold gradient-text">FitAI Coach</h1>
-          <p className="mt-2 text-muted-foreground">Start your transformation today</p>
+          <h1 className="text-4xl font-bold gradient-text font-display">FitAI Coach</h1>
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-primary/70" />
+            Start your transformation today
+          </p>
         </div>
 
-        <Card>
+        <Card className="animate-fade-up stagger-2 border-primary/20">
           <CardHeader>
             <CardTitle>Create account</CardTitle>
             <CardDescription>Set up your profile to get personalized coaching</CardDescription>
@@ -59,14 +69,16 @@ export function RegisterPage() {
                 <Label htmlFor="password">Password</Label>
                 <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <p className="text-sm text-destructive animate-fade-in">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Creating account...' : 'Create account'}
               </Button>
             </form>
-            <p className="mt-4 text-center text-sm text-muted-foreground">
+            <p className="mt-5 text-center text-sm text-muted-foreground">
               Already have an account?{' '}
-              <Link to="/login" className="text-primary hover:underline">Sign in</Link>
+              <Link to="/login" className="text-primary hover:text-accent transition-colors font-medium">
+                Sign in
+              </Link>
             </p>
           </CardContent>
         </Card>

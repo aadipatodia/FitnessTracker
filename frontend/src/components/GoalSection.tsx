@@ -50,12 +50,12 @@ function MetricPair({
 }) {
   if (!target && !current) return null
   return (
-    <div className="rounded-lg border border-border bg-background/50 p-3">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+    <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 transition-all duration-300 hover:border-primary/20 hover:bg-secondary/50">
+      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
         {icon}
         {label}
       </div>
-      <p className="mt-1 text-sm font-medium">
+      <p className="mt-1.5 text-sm font-medium font-display">
         {current != null ? `${current}${unit}` : '—'}
         {target != null && (
           <span className="text-muted-foreground"> → {target}{unit}</span>
@@ -70,10 +70,10 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
 
   if (!goal) {
     return (
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+      <Card className="border-primary/25 bg-gradient-to-br from-primary/8 via-transparent to-transparent overflow-hidden">
         <CardContent className="flex flex-col items-center gap-4 py-10 text-center sm:flex-row sm:justify-between sm:text-left">
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/25 to-primary/5 ring-1 ring-primary/20 animate-pulse-gold">
               <Target className="h-6 w-6 text-primary" />
             </div>
             <div>
@@ -87,8 +87,7 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
             to="/onboarding"
             className={cn(
               'inline-flex items-center justify-center gap-2 font-medium transition-all',
-              'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20',
-              'h-10 px-4 text-sm rounded-lg',
+              'btn-luxury h-10 px-4 text-sm rounded-xl',
             )}
           >
             Set a goal
@@ -113,13 +112,13 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
   const currentBodyFat = stats?.current_body_fat ?? goal.current_body_fat
 
   return (
-    <Card className="border-primary/20">
+    <Card className="border-primary/25">
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="text-lg">{goal.title}</CardTitle>
-              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+              <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary ring-1 ring-primary/20">
                 {GOAL_TYPE_LABELS[goal.goal_type] ?? goal.goal_type}
               </span>
             </div>
@@ -165,9 +164,9 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
             <span className="text-muted-foreground">Overall progress</span>
             <span className="font-medium text-primary">{progress}%</span>
           </div>
-          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+          <div className="luxury-progress h-2.5">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all"
+              className="luxury-progress-fill"
               style={{ width: `${Math.min(100, progress)}%` }}
             />
           </div>
@@ -202,12 +201,12 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
             />
           )}
           {goal.target_calories != null && (
-            <div className="rounded-lg border border-border bg-background/50 p-3">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 transition-all duration-300 hover:border-primary/20">
+              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
                 <Flame className="h-3 w-3" />
                 Calories today
               </div>
-              <p className="mt-1 text-sm font-medium">
+              <p className="mt-1.5 text-sm font-medium font-display">
                 {Math.round(stats?.calories_today ?? 0)}
                 <span className="text-muted-foreground"> / {goal.target_calories} target</span>
               </p>
@@ -220,12 +219,12 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
             </div>
           )}
           {goal.target_protein != null && (
-            <div className="rounded-lg border border-border bg-background/50 p-3">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 transition-all duration-300 hover:border-primary/20">
+              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
                 <Beef className="h-3 w-3" />
                 Protein today
               </div>
-              <p className="mt-1 text-sm font-medium">
+              <p className="mt-1.5 text-sm font-medium font-display">
                 {Math.round(stats?.protein_today ?? 0)}g
                 <span className="text-muted-foreground"> / {goal.target_protein}g target</span>
               </p>

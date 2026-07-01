@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { api, RecoveryLog } from '@/lib/api'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -53,10 +54,7 @@ export function RecoveryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Recovery</h1>
-        <p className="text-muted-foreground">Track sleep and hydration</p>
-      </div>
+      <PageHeader title="Recovery" subtitle="Track sleep and hydration" />
 
       <Card>
         <CardHeader>
@@ -88,7 +86,7 @@ export function RecoveryPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="luxury-spinner" />
         </div>
       ) : (
         <div className="space-y-3">
