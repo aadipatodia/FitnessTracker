@@ -1,40 +1,21 @@
 import json
 import logging
 import re
+import time
 from datetime import date, datetime
-from pathlib import Path
 
 import google.generativeai as genai
 from dateutil import parser as date_parser
 
 from app.config import settings
+from app.logging_setup import configure_logger
 from app.services.goal_nutrition import apply_stated_nutrition_targets, parse_stated_nutrition_targets
 
 logger = logging.getLogger("gemini")
 
 
 def setup_gemini_logging() -> None:
-    if logger.handlers:
-        return
-
-    log_dir = Path("logs")
-    log_dir.mkdir(exist_ok=True)
-
-    formatter = logging.Formatter(
-        "%(asctime)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    file_handler = logging.FileHandler(log_dir / "gemini.log")
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
+    configure_logger("gemini", "gemini.log")
 
 
 def _configure_gemini():
@@ -58,16 +39,23 @@ def _format_user_input(user_input) -> str:
 def _log_gemini_exchange(
     operation: str,
     user_input,
+    *,
+    status: str,
+    duration_ms: float | None = None,
     raw_response: str | None = None,
     parsed: dict | None = None,
     error: str | None = None,
     note: str | None = None,
 ) -> None:
-    lines = [f"── Gemini: {operation} ──", f"User input:\n{_format_user_input(user_input)}"]
+    header_parts = [f"operation={operation}", f"status={status}", f"model={settings.GEMINI_MODEL}"]
+    if duration_ms is not None:
+        header_parts.append(f"duration={duration_ms:.0f}ms")
     if note:
-        lines.append(f"Note: {note}")
+        header_parts.append(f"note={note}")
     if error:
-        lines.append(f"Error: {error}")
+        header_parts.append(f"error={error}")
+
+    lines = ["── Gemini call ──", " | ".join(header_parts), f"User input:\n{_format_user_input(user_input)}"]
     if raw_response:
         lines.append(f"Gemini response:\n{raw_response.strip()}")
     if parsed is not None:
@@ -79,18 +67,41 @@ def _generate_json(operation: str, user_input, prompt: str, fallback: dict) -> d
     _configure_gemini()
 
     if not settings.GEMINI_API_KEY:
-        _log_gemini_exchange(operation, user_input, note="Skipped — no GEMINI_API_KEY", parsed=fallback)
+        _log_gemini_exchange(
+            operation,
+            user_input,
+            status="skipped",
+            note="no GEMINI_API_KEY",
+            parsed=fallback,
+        )
         return fallback
 
     model = genai.GenerativeModel(settings.GEMINI_MODEL)
+    started = time.perf_counter()
     try:
         response = model.generate_content(prompt)
+        elapsed_ms = (time.perf_counter() - started) * 1000
         raw = response.text
         parsed = _parse_json_response(raw)
-        _log_gemini_exchange(operation, user_input, raw_response=raw, parsed=parsed)
+        _log_gemini_exchange(
+            operation,
+            user_input,
+            status="ok",
+            duration_ms=elapsed_ms,
+            raw_response=raw,
+            parsed=parsed,
+        )
         return parsed
     except Exception as exc:
-        _log_gemini_exchange(operation, user_input, parsed=fallback, error=str(exc))
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        _log_gemini_exchange(
+            operation,
+            user_input,
+            status="fallback",
+            duration_ms=elapsed_ms,
+            parsed=fallback,
+            error=f"{exc.__class__.__name__}: {exc}",
+        )
         return fallback
 
 

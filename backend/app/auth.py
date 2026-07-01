@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.logging_setup import logger
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
@@ -47,32 +46,26 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     if not token:
-        logger.warning("Auth rejected: missing bearer token")
         raise _unauthorized("Missing authentication token")
 
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except ExpiredSignatureError:
-        logger.warning("Auth rejected: token expired")
         raise _unauthorized("Token expired")
-    except JWTError as exc:
-        logger.warning("Auth rejected: invalid token (%s)", exc.__class__.__name__)
+    except JWTError:
         raise _unauthorized("Invalid authentication token")
 
     user_id = payload.get("sub")
     if user_id is None:
-        logger.warning("Auth rejected: token missing subject claim")
         raise _unauthorized("Invalid token payload: missing user id")
 
     try:
         user_id_int = int(user_id)
     except (TypeError, ValueError):
-        logger.warning("Auth rejected: invalid subject claim value=%r", user_id)
         raise _unauthorized("Invalid token payload: bad user id")
 
     user = db.query(User).filter(User.id == user_id_int).first()
     if user is None:
-        logger.warning("Auth rejected: user not found for id=%s", user_id_int)
         raise _unauthorized(f"User not found for token (id={user_id_int})")
     return user
 

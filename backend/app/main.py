@@ -8,8 +8,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import engine, Base
-from app.http_logging import http_exception_handler, validation_exception_handler
-from app.logging_setup import setup_app_logging
+from app.http_logging import http_exception_handler, RequestLoggingMiddleware, validation_exception_handler
+from app.logging_setup import logger, setup_app_logging
 from app.services.gemini import setup_gemini_logging
 from app.routers import auth, goals, workouts, diet, body, recovery, coach, activities, checkpoints
 
@@ -20,7 +20,14 @@ async def lifespan(app: FastAPI):
     setup_gemini_logging()
     Base.metadata.create_all(bind=engine)
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    logger.info(
+        "FitAI Coach API started | model=%s | gemini=%s | cors=%s",
+        settings.GEMINI_MODEL,
+        "configured" if settings.GEMINI_API_KEY else "missing API key",
+        settings.CORS_ORIGINS,
+    )
     yield
+    logger.info("FitAI Coach API shutting down")
 
 
 app = FastAPI(
@@ -32,6 +39,8 @@ app = FastAPI(
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+app.add_middleware(RequestLoggingMiddleware)
 
 origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
 app.add_middleware(
