@@ -2,9 +2,17 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { formatDate } from '@/lib/utils'
 
-const CHART_COLORS = ['#f59e0b', '#22c55e', '#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6']
+const CHART_COLORS = ['#c9a962', '#e8d5b5', '#a8893a', '#d4b872', '#8a7140', '#f5e6c8', '#b8954a']
+const CHART_GRID = 'rgba(201, 169, 98, 0.08)'
+const CHART_AXIS = '#8a8278'
+const tooltipStyle = {
+  background: 'rgba(16, 14, 12, 0.95)',
+  border: '1px solid rgba(201, 169, 98, 0.2)',
+  borderRadius: 12,
+}
 
 export interface StrengthProgressPoint {
   date: string
@@ -26,8 +34,6 @@ export function groupStrengthByExercise(
   return byExercise
 }
 
-const tooltipStyle = { background: '#12121a', border: '1px solid #27272a', borderRadius: 8 }
-
 export function ExerciseProgressCharts({
   strengthProgression,
   chartHeight = 220,
@@ -42,41 +48,50 @@ export function ExerciseProgressCharts({
 
   if (exercises.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center text-muted-foreground">{emptyMessage}</CardContent>
-      </Card>
+      <ScrollReveal>
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">{emptyMessage}</CardContent>
+        </Card>
+      </ScrollReveal>
     )
   }
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {exercises.map((name, i) => (
-        <Card key={name}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">{name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={chartHeight}>
-              <LineChart data={byExercise[name]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke="#71717a" fontSize={11} />
-                <YAxis stroke="#71717a" fontSize={11} unit=" kg" domain={['auto', 'auto']} />
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  labelFormatter={(d) => formatDate(d)}
-                  formatter={(value) => [`${value} kg`, 'Max weight']}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="max_weight"
-                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <ScrollReveal
+          key={name}
+          delay={revealDelay(i % 6, 90)}
+          animation={i % 2 === 0 ? 'slide-left' : 'slide-right'}
+        >
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{name}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <LineChart data={byExercise[name]}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+                  <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={11} />
+                  <YAxis stroke={CHART_AXIS} fontSize={11} unit=" kg" domain={['auto', 'auto']} />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    labelFormatter={(d) => formatDate(d)}
+                    formatter={(value) => [`${value} kg`, 'Max weight']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="max_weight"
+                    stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                    strokeWidth={2.5}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </ScrollReveal>
       ))}
     </div>
   )

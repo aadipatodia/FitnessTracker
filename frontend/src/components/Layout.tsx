@@ -13,10 +13,11 @@ import {
   Target,
   ListChecks,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
 import { AmbientBackground } from '@/components/AmbientBackground'
+import { ScrollProgress } from '@/components/ScrollProgress'
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -41,6 +42,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [scrollY, setScrollY] = useState(0)
+
+  useEffect(() => {
+    const main = document.querySelector('main')
+    if (!main) return
+
+    const onScroll = () => setScrollY(main.scrollTop)
+    onScroll()
+    main.addEventListener('scroll', onScroll, { passive: true })
+    return () => main.removeEventListener('scroll', onScroll)
+  }, [location.pathname])
 
   const handleLogout = () => {
     logout()
@@ -100,7 +112,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative flex min-h-screen bg-background">
-      <AmbientBackground />
+      <AmbientBackground scrollY={scrollY} />
+      <ScrollProgress />
 
       {/* Desktop sidebar */}
       <aside className="relative z-10 hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-border/60 glass">

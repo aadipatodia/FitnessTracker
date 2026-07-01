@@ -3,6 +3,7 @@ import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { api, Checkpoint, DailyCheckpoints } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
+import { ScrollReveal } from '@/components/ScrollReveal'
 import { Input, Label } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn, formatDate, todayISO } from '@/lib/utils'
@@ -149,7 +150,8 @@ export function CheckpointsPage() {
         subtitle="Your checklist items stay the same every day — only checkmarks reset per date"
       />
 
-      <Card>
+      <ScrollReveal animation="blur-up">
+        <Card>
         <CardHeader>
           <CardTitle>Daily checklist</CardTitle>
         </CardHeader>
@@ -230,9 +232,11 @@ export function CheckpointsPage() {
             </p>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </ScrollReveal>
 
-      <Card>
+      <ScrollReveal animation="fade-up" delay={120}>
+        <Card>
         <CardHeader>
           <CardTitle>Manage checkpoints</CardTitle>
         </CardHeader>
@@ -315,6 +319,7 @@ export function CheckpointsPage() {
           )}
         </CardContent>
       </Card>
+      </ScrollReveal>
     </div>
   )
 }

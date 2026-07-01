@@ -295,6 +295,40 @@ h1, h2, h3, .font-display {
 .stagger-7 { animation-delay: 0.35s; }
 .stagger-8 { animation-delay: 0.4s; }
 
+/* ── Scroll reveal (Intersection Observer) ── */
+
+.scroll-reveal {
+  opacity: 0;
+  transition-property: opacity, transform, filter;
+  transition-duration: var(--reveal-duration, 700ms);
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform, filter;
+}
+
+.scroll-reveal-visible {
+  opacity: 1;
+  transform: none !important;
+  filter: none !important;
+}
+
+.scroll-reveal-fade-up    { transform: translateY(36px); }
+.scroll-reveal-fade-down  { transform: translateY(-28px); }
+.scroll-reveal-fade-in    { transform: none; }
+.scroll-reveal-slide-left { transform: translateX(-40px); }
+.scroll-reveal-slide-right { transform: translateX(40px); }
+.scroll-reveal-scale      { transform: scale(0.92); }
+.scroll-reveal-blur-up    { transform: translateY(28px); filter: blur(10px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1;
+    transform: none !important;
+    filter: none !important;
+    transition: none;
+  }
+}
+
 /* ── Buttons ── */
 
 .btn-luxury {

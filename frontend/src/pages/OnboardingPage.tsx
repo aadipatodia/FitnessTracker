@@ -102,7 +102,20 @@ export function OnboardingPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [step, setStep] = useState(0)
-  const [goalType, setGoalType] = useState<GoalType>('reduce_body_fat')
+  const [selectedGoalTypes, setSelectedGoalTypes] = useState<GoalType[]>(['reduce_body_fat'])
+
+  const toggleGoalType = (value: GoalType) => {
+    setSelectedGoalTypes((prev) =>
+      prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]
+    )
+  }
+
+  const goalTypeForApi = selectedGoalTypes.join(',')
+  const primaryGoalType = selectedGoalTypes[0] ?? 'reduce_body_fat'
+  const selectedGoalLabels = selectedGoalTypes
+    .map((t) => goalTypes.find((g) => g.value === t)?.label)
+    .filter(Boolean)
+    .join(' & ')
   const [gender, setGender] = useState<Gender | ''>('')
   const [age, setAge] = useState('')
   const [endGoal, setEndGoal] = useState('')
@@ -138,7 +151,7 @@ export function OnboardingPage() {
 
   const parsedGoalDate = parseDateFromText(endGoal)
   const planInputKey = buildPlanInputKey({
-    goalType,
+    goalType: goalTypeForApi,
     gender,
     age,
     endGoal,
@@ -157,7 +170,7 @@ export function OnboardingPage() {
   useEffect(() => {
     if (step !== 2 || !endGoal.trim() || !gender || parsedAge === undefined) return
 
-    const guidanceKey = `${goalType}|${endGoal}|${gender}|${parsedAge}`
+    const guidanceKey = `${goalTypeForApi}|${endGoal}|${gender}|${parsedAge}`
     if (guidanceFetchedForStep.current === guidanceKey) return
     guidanceFetchedForStep.current = guidanceKey
 
@@ -165,7 +178,7 @@ export function OnboardingPage() {
     setGuidanceLoading(true)
     api
       .getGoalGuidance({
-        goal_type: goalType,
+        goal_type: goalTypeForApi,
         end_goal: endGoal.trim() || undefined,
         gender,
         age: parsedAge,
@@ -181,7 +194,7 @@ export function OnboardingPage() {
     return () => {
       cancelled = true
     }
-  }, [step, goalType, endGoal, gender, parsedAge])
+  }, [step, goalTypeForApi, endGoal, gender, parsedAge])
 
   useEffect(() => {
     if (step !== 2) {
@@ -214,7 +227,7 @@ export function OnboardingPage() {
       const effectiveDate = effectiveTargetDate
 
       const result = await api.evaluateGoal({
-        goal_type: goalType,
+        goal_type: goalTypeForApi,
         end_goal: endGoal.trim() || undefined,
         gender,
         age: parsedAge,
@@ -264,6 +277,9 @@ export function OnboardingPage() {
     setLoading(true)
     try {
       let description = endGoal.trim()
+      if (selectedGoalTypes.length > 1) {
+        description = `Focus areas: ${selectedGoalLabels}${description ? `\n\n${description}` : ''}`
+      }
       const plan = assessment ?? feasibility
       if (plan && (plan.intensity === 'extreme' || !plan.realistic)) {
         description += `\n\n[Plan: ${plan.intensity}] ${plan.expected_by_deadline}`
@@ -271,8 +287,8 @@ export function OnboardingPage() {
       }
 
       await api.createGoal({
-        goal_type: goalType,
-        title: title || endGoal.slice(0, 60) || goalTypes.find(g => g.value === goalType)?.label || 'My Goal',
+        goal_type: primaryGoalType,
+        title: title || endGoal.slice(0, 60) || selectedGoalLabels || 'My Goal',
         description: description || undefined,
         gender,
         age: parsedAge,
@@ -294,9 +310,11 @@ export function OnboardingPage() {
     }
   }
 
-  const showBodyFat = goalType === 'reduce_body_fat' || goalType === 'lose_fat_gain_muscle'
-  const showWeight = goalType !== 'increase_strength'
-  const showStrength = goalType === 'increase_strength'
+  const showBodyFat = selectedGoalTypes.some(
+    (t) => t === 'reduce_body_fat' || t === 'lose_fat_gain_muscle'
+  )
+  const showWeight = selectedGoalTypes.some((t) => t !== 'increase_strength')
+  const showStrength = selectedGoalTypes.includes('increase_strength')
 
   const minDate = new Date()
   minDate.setDate(minDate.getDate() + 7)
@@ -332,26 +350,33 @@ export function OnboardingPage() {
           <Card>
             <CardHeader>
               <CardTitle>What's your focus?</CardTitle>
-              <CardDescription>Pick the category closest to your end goal</CardDescription>
+              <CardDescription>Pick one or more categories that match your end goal</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
-              {goalTypes.map(({ value, label, icon: Icon, desc }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setGoalType(value)}
-                  className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
-                    goalType === value
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  <Icon className={`mb-2 h-5 w-5 ${goalType === value ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <span className="font-medium">{label}</span>
-                  <span className="text-xs text-muted-foreground mt-1">{desc}</span>
-                </button>
-              ))}
-              <Button className="sm:col-span-2 mt-2" onClick={() => setStep(1)}>
+              {goalTypes.map(({ value, label, icon: Icon, desc }) => {
+                const selected = selectedGoalTypes.includes(value)
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => toggleGoalType(value)}
+                    className={`flex flex-col items-start rounded-xl border p-4 text-left transition-all ${
+                      selected
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <Icon className={`mb-2 h-5 w-5 ${selected ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className="font-medium">{label}</span>
+                    <span className="text-xs text-muted-foreground mt-1">{desc}</span>
+                  </button>
+                )
+              })}
+              <Button
+                className="sm:col-span-2 mt-2"
+                onClick={() => setStep(1)}
+                disabled={selectedGoalTypes.length === 0}
+              >
                 Continue
               </Button>
             </CardContent>

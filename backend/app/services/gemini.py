@@ -367,7 +367,7 @@ async def generate_goal_guidance(
 
 {INDIA_CONTEXT}
 
-Goal category: {goal_type}
+Goal categories: {goal_type}
 User's end goal: {end_goal or "Not specified yet"}
 {"User profile: " + ", ".join(profile) if profile else "User profile: not provided yet"}
 

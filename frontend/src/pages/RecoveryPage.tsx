@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { api, RecoveryLog } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
+import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input, Label } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
@@ -56,33 +57,35 @@ export function RecoveryPage() {
     <div className="space-y-6">
       <PageHeader title="Recovery" subtitle="Track sleep and hydration" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Log recovery</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Date (wake-up date for sleep)</Label>
-              <Input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
-              <p className="text-xs text-muted-foreground">
-                Sleep is counted for the night before this date through this morning.
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+      <ScrollReveal animation="blur-up">
+        <Card>
+          <CardHeader>
+            <CardTitle>Log recovery</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Sleep (hours)</Label>
-                <Input type="number" step="0.5" value={sleep} onChange={(e) => setSleep(e.target.value)} placeholder="7.5" />
+                <Label>Date (wake-up date for sleep)</Label>
+                <Input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
+                <p className="text-xs text-muted-foreground">
+                  Sleep is counted for the night before this date through this morning.
+                </p>
               </div>
-              <div className="space-y-2">
-                <Label>Water (liters)</Label>
-                <Input type="number" step="0.1" value={water} onChange={(e) => setWater(e.target.value)} placeholder="2.5" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Sleep (hours)</Label>
+                  <Input type="number" step="0.5" value={sleep} onChange={(e) => setSleep(e.target.value)} placeholder="7.5" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Water (liters)</Label>
+                  <Input type="number" step="0.1" value={water} onChange={(e) => setWater(e.target.value)} placeholder="2.5" />
+                </div>
               </div>
-            </div>
-            <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save recovery log'}</Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save recovery log'}</Button>
+            </form>
+          </CardContent>
+        </Card>
+      </ScrollReveal>
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -90,8 +93,9 @@ export function RecoveryPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {logs.map((log) => (
-            <Card key={log.id}>
+          {logs.map((log, i) => (
+            <ScrollReveal key={log.id} delay={revealDelay(i % 8, 70)} animation="slide-right">
+              <Card>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="font-medium">{formatDate(log.log_date)}</span>
@@ -113,7 +117,8 @@ export function RecoveryPage() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </ScrollReveal>
           ))}
         </div>
       )}

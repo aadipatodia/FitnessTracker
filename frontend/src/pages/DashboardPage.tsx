@@ -9,6 +9,7 @@ import { StatCard } from '@/components/StatCard'
 import { GoalSection } from '@/components/GoalSection'
 import { ExerciseProgressCharts } from '@/components/ExerciseProgressCharts'
 import { PageHeader } from '@/components/PageHeader'
+import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate } from '@/lib/utils'
 
@@ -72,18 +73,20 @@ export function DashboardPage() {
         subtitle={stats?.active_goal?.title || 'Track your fitness journey'}
       />
 
-      <div className="animate-fade-up stagger-2">
+      <ScrollReveal animation="blur-up" duration={800}>
         <GoalSection stats={stats} />
-      </div>
+      </ScrollReveal>
 
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {statItems.map((item, i) => (
-          <StatCard key={item.title} {...item} index={i} />
+          <ScrollReveal key={item.title} delay={revealDelay(i, 70)} animation="scale">
+            <StatCard {...item} />
+          </ScrollReveal>
         ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <ChartCard title="Weight Trend" delay={3}>
+        <ChartCard title="Weight Trend" index={0}>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={charts?.weight_trend ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
@@ -95,7 +98,7 @@ export function DashboardPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Body Fat Trend" delay={4}>
+        <ChartCard title="Body Fat Trend" index={1}>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={charts?.body_fat_trend ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
@@ -107,7 +110,7 @@ export function DashboardPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Protein Intake" delay={5}>
+        <ChartCard title="Protein Intake" index={2} animation="slide-left">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={charts?.protein_intake ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
@@ -119,7 +122,7 @@ export function DashboardPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Calorie Intake" delay={6}>
+        <ChartCard title="Calorie Intake" index={3} animation="slide-right">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={charts?.calories_intake ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
@@ -132,21 +135,23 @@ export function DashboardPage() {
         </ChartCard>
       </div>
 
-      <div className="space-y-4 animate-fade-up stagger-7">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold font-display gradient-text-subtle">Exercise Progress</h2>
-          <Link
-            to="/workout-graph"
-            className="text-sm text-primary hover:text-accent transition-colors font-medium"
-          >
-            Open workout graph →
-          </Link>
+      <ScrollReveal animation="fade-up" delay={100}>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg font-semibold font-display gradient-text-subtle">Exercise Progress</h2>
+            <Link
+              to="/workout-graph"
+              className="text-sm text-primary hover:text-accent transition-colors font-medium"
+            >
+              Open workout graph →
+            </Link>
+          </div>
+          <ExerciseProgressCharts
+            strengthProgression={charts?.strength_progression ?? []}
+            chartHeight={180}
+          />
         </div>
-        <ExerciseProgressCharts
-          strengthProgression={charts?.strength_progression ?? []}
-          chartHeight={180}
-        />
-      </div>
+      </ScrollReveal>
     </div>
   )
 }
@@ -155,19 +160,23 @@ function ChartCard({
   title,
   children,
   className = '',
-  delay = 0,
+  index = 0,
+  animation = 'fade-up',
 }: {
   title: string
   children: React.ReactNode
   className?: string
-  delay?: number
+  index?: number
+  animation?: 'fade-up' | 'slide-left' | 'slide-right'
 }) {
   return (
-    <Card className={`animate-fade-up stagger-${Math.min(delay, 8)} ${className}`}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <ScrollReveal animation={animation} delay={revealDelay(index, 100)} className={className}>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">{title}</CardTitle>
+        </CardHeader>
+        <CardContent>{children}</CardContent>
+      </Card>
+    </ScrollReveal>
   )
 }

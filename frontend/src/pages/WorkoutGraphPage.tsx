@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, DashboardCharts } from '@/lib/api'
 import { ExerciseProgressCharts } from '@/components/ExerciseProgressCharts'
 import { PageHeader } from '@/components/PageHeader'
+import { ScrollReveal } from '@/components/ScrollReveal'
 
 const PERIOD_OPTIONS = [
   { label: 'Last 30 days', value: 30 },
@@ -46,11 +47,13 @@ export function WorkoutGraphPage() {
           <div className="luxury-spinner" />
         </div>
       ) : (
-        <ExerciseProgressCharts
-          strengthProgression={charts?.strength_progression ?? []}
-          chartHeight={280}
-          emptyMessage="No workout data yet. Log a workout to see your progress graphs."
-        />
+        <ScrollReveal animation="blur-up">
+          <ExerciseProgressCharts
+            strengthProgression={charts?.strength_progression ?? []}
+            chartHeight={280}
+            emptyMessage="No workout data yet. Log a workout to see your progress graphs."
+          />
+        </ScrollReveal>
       )}
     </div>
   )

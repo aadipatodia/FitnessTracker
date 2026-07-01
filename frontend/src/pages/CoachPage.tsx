@@ -3,6 +3,7 @@ import { Brain, Sparkles, Calendar, TrendingUp, Target } from 'lucide-react'
 import { api, CoachingInsight } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
+import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
@@ -231,10 +232,11 @@ export function CoachPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4">
-        <PageHeader title="AI Coach" subtitle="Personalized feedback powered by Gemini" />
+      <ScrollReveal animation="fade-up">
+        <div className="flex flex-col gap-4">
+          <PageHeader title="AI Coach" subtitle="Personalized feedback powered by Gemini" />
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="space-y-1.5">
             <label htmlFor="analysis-date" className="text-xs font-medium text-muted-foreground">
               Analyze date
@@ -269,10 +271,12 @@ export function CoachPage() {
               {analyzing === 'goal' ? 'Analyzing...' : 'Goal Progress'}
             </Button>
           </div>
+          </div>
         </div>
-      </div>
+      </ScrollReveal>
 
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+      <ScrollReveal animation="blur-up" delay={100}>
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
         <CardContent className="py-6">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20">
@@ -288,14 +292,16 @@ export function CoachPage() {
             </div>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      </ScrollReveal>
 
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="luxury-spinner" />
         </div>
       ) : !hasAnyInsights ? (
-        <Card>
+        <ScrollReveal>
+          <Card>
           <CardContent className="py-12 text-center">
             <Brain className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
@@ -309,14 +315,16 @@ export function CoachPage() {
               Analyze {formatDate(analysisDate)}
             </Button>
           </CardContent>
-        </Card>
+          </Card>
+        </ScrollReveal>
       ) : (
         <div className="space-y-8">
-          {sectionConfig.map(({ type, title, description }) => {
+          {sectionConfig.map(({ type, title, description }, sectionIdx) => {
             const insights = insightsByType[type]
             if (insights.length === 0) return null
             return (
-              <section key={type} className="space-y-3">
+              <ScrollReveal key={type} delay={revealDelay(sectionIdx, 120)} animation="fade-up">
+                <section className="space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-lg font-semibold">{title}</h2>
@@ -332,11 +340,14 @@ export function CoachPage() {
                   </Button>
                 </div>
                 <div className="space-y-4">
-                  {insights.map((insight) => (
-                    <InsightCard key={insight.id} insight={insight} />
+                  {insights.map((insight, i) => (
+                    <ScrollReveal key={insight.id} delay={revealDelay(i % 5, 80)} animation="slide-left">
+                      <InsightCard insight={insight} />
+                    </ScrollReveal>
                   ))}
                 </div>
-              </section>
+                </section>
+              </ScrollReveal>
             )
           })}
         </div>

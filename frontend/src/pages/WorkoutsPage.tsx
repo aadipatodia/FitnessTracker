@@ -3,6 +3,7 @@ import { Plus, Trash2, HeartPulse } from 'lucide-react'
 import { api, Workout, SetCreate, ActivityLog } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
+import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
@@ -158,16 +159,19 @@ export function WorkoutsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader title="Workouts" subtitle="Log exercises, sets, reps, and weights" />
-        <Button onClick={() => setShowForm(!showForm)} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4" />
-          Log Workout
-        </Button>
-      </div>
+      <ScrollReveal animation="fade-up">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <PageHeader title="Workouts" subtitle="Log exercises, sets, reps, and weights" />
+          <Button onClick={() => setShowForm(!showForm)} className="w-full sm:w-auto">
+            <Plus className="h-4 w-4" />
+            Log Workout
+          </Button>
+        </div>
+      </ScrollReveal>
 
       {showForm && (
-        <Card>
+        <ScrollReveal animation="blur-up">
+          <Card>
           <CardHeader>
             <CardTitle>New Workout</CardTitle>
           </CardHeader>
@@ -259,7 +263,8 @@ export function WorkoutsPage() {
               </div>
             </form>
           </CardContent>
-        </Card>
+          </Card>
+        </ScrollReveal>
       )}
 
       {loading ? (
@@ -267,15 +272,18 @@ export function WorkoutsPage() {
           <div className="luxury-spinner" />
         </div>
       ) : workouts.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            No workouts logged yet. Start tracking your training!
-          </CardContent>
-        </Card>
+        <ScrollReveal>
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              No workouts logged yet. Start tracking your training!
+            </CardContent>
+          </Card>
+        </ScrollReveal>
       ) : (
         <div className="space-y-4">
-          {workouts.map((w) => (
-            <Card key={w.id}>
+          {workouts.map((w, i) => (
+            <ScrollReveal key={w.id} delay={revealDelay(i % 8, 75)} animation="slide-left">
+              <Card>
               <CardHeader className="pb-2">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base">{w.name || 'Workout'}</CardTitle>
@@ -315,12 +323,14 @@ export function WorkoutsPage() {
                   ))}
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </ScrollReveal>
           ))}
         </div>
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-border">
+      <ScrollReveal animation="fade-up">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-border">
         <div>
           <h2 className="text-xl font-semibold">Cardio</h2>
           <p className="text-sm text-muted-foreground">Log running, cycling, swimming, and other cardio</p>
@@ -329,10 +339,12 @@ export function WorkoutsPage() {
           <HeartPulse className="h-4 w-4" />
           Log Cardio
         </Button>
-      </div>
+        </div>
+      </ScrollReveal>
 
       {showCardioForm && (
-        <Card>
+        <ScrollReveal animation="blur-up">
+          <Card>
           <CardHeader>
             <CardTitle>New Cardio Session</CardTitle>
           </CardHeader>
@@ -372,13 +384,15 @@ export function WorkoutsPage() {
               </div>
             </form>
           </CardContent>
-        </Card>
+          </Card>
+        </ScrollReveal>
       )}
 
       {cardioLogs.length > 0 && (
         <div className="space-y-3">
-          {cardioLogs.map((c) => (
-            <Card key={c.id}>
+          {cardioLogs.map((c, i) => (
+            <ScrollReveal key={c.id} delay={revealDelay(i % 6, 75)} animation="slide-right">
+              <Card>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -406,7 +420,8 @@ export function WorkoutsPage() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </ScrollReveal>
           ))}
         </div>
       )}

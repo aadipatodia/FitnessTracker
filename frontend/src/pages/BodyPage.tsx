@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { api, BodyMetric } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
+import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
@@ -59,45 +60,50 @@ export function BodyPage() {
     <div className="space-y-6">
       <PageHeader title="Body Metrics" subtitle="Track weight and body fat over time" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Log metrics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input type="date" value={recordedDate} onChange={(e) => setRecordedDate(e.target.value)} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+      <ScrollReveal animation="blur-up">
+        <Card>
+          <CardHeader>
+            <CardTitle>Log metrics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Weight (kg)</Label>
-                <Input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="75.5" />
+                <Label>Date</Label>
+                <Input type="date" value={recordedDate} onChange={(e) => setRecordedDate(e.target.value)} />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Weight (kg)</Label>
+                  <Input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="75.5" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Body fat (%)</Label>
+                  <Input type="number" step="0.1" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="18.5" />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>Body fat (%)</Label>
-                <Input type="number" step="0.1" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="18.5" />
+                <Label>Notes</Label>
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
-            </div>
-            <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save metrics'}</Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save metrics'}</Button>
+            </form>
+          </CardContent>
+        </Card>
+      </ScrollReveal>
 
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="luxury-spinner" />
         </div>
       ) : metrics.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No metrics logged yet.</CardContent></Card>
+        <ScrollReveal>
+          <Card><CardContent className="py-12 text-center text-muted-foreground">No metrics logged yet.</CardContent></Card>
+        </ScrollReveal>
       ) : (
         <div className="space-y-3">
-          {metrics.map((m) => (
-            <Card key={m.id}>
+          {metrics.map((m, i) => (
+            <ScrollReveal key={m.id} delay={revealDelay(i % 8, 70)} animation="fade-up">
+              <Card>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="font-medium">{formatDate(m.recorded_date)}</span>
@@ -120,7 +126,8 @@ export function BodyPage() {
                 </div>
                 {m.notes && <p className="mt-2 text-sm text-muted-foreground">{m.notes}</p>}
               </CardContent>
-            </Card>
+              </Card>
+            </ScrollReveal>
           ))}
         </div>
       )}

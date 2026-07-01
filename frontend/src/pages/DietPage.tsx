@@ -3,6 +3,7 @@ import { Sparkles, Trash2 } from 'lucide-react'
 import { api, DietLog } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
+import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input, Label, Select, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
@@ -71,16 +72,19 @@ export function DietPage() {
           { label: 'Carbs', value: Math.round(todayTotals.carbs), unit: 'g' },
           { label: 'Fat', value: Math.round(todayTotals.fat), unit: 'g' },
         ].map(({ label, value, unit }, i) => (
-          <div key={label} className={`luxury-card rounded-xl p-4 text-center animate-fade-up stagger-${Math.min(i + 1, 8)}`}>
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
-            <p className="text-2xl font-bold font-display gradient-text-subtle">
-              {value}<span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span>
-            </p>
-          </div>
+          <ScrollReveal key={label} delay={revealDelay(i, 80)} animation="scale">
+            <div className="luxury-card rounded-xl p-4 text-center h-full">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+              <p className="text-2xl font-bold font-display gradient-text-subtle">
+                {value}<span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span>
+              </p>
+            </div>
+          </ScrollReveal>
         ))}
       </div>
 
-      <Card>
+      <ScrollReveal animation="blur-up">
+        <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
@@ -121,7 +125,8 @@ export function DietPage() {
             </Button>
           </form>
         </CardContent>
-      </Card>
+        </Card>
+      </ScrollReveal>
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -129,8 +134,9 @@ export function DietPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {logs.map((log) => (
-            <Card key={log.id}>
+          {logs.map((log, i) => (
+            <ScrollReveal key={log.id} delay={revealDelay(i % 6, 70)} animation="fade-up">
+              <Card>
               <CardHeader className="pb-2">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base capitalize">{log.meal_type || 'Meal'}</CardTitle>
@@ -174,7 +180,8 @@ export function DietPage() {
                   </span>
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </ScrollReveal>
           ))}
         </div>
       )}
