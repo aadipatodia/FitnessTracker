@@ -243,6 +243,12 @@ User Data:
 
 If has_goal is false, return one insight encouraging them to set a goal.
 
+DEADLINE RULES:
+- If goal_progress.weeks_until_deadline / days_until_deadline is null, the user has no target date. Recommend the best realistic completion timeline based on their age, gender, current body metrics, progress so far, and goal type. Set goal_completion_weeks to your recommended estimate.
+- For women: account for perimenopause/menopause and related recovery/metabolic factors when age-appropriate (~45+).
+- For men: account for age-related recovery and muscle-loss considerations when age-appropriate (40+).
+- If a deadline exists, assess on-track status vs that date and set goal_completion_weeks only if you have a revised estimate.
+
 Return ONLY valid JSON (no markdown):
 {{
   "title": "Goal Progress",
@@ -258,7 +264,7 @@ Return ONLY valid JSON (no markdown):
 
 Insight type MUST be one of: daily, weekly, progression, nutrition, goal_estimate.
 
-Cover: current progress vs targets, whether they are on track for target_date, weekly rate needed to hit deadline, calorie/protein adherence including workout burn totals, and 2-3 specific adjustments (training, nutrition, recovery). Be concrete with numbers."""
+Cover: current progress vs targets; if no deadline, a recommended timeline with goal_completion_weeks; if a deadline exists, whether they are on track, weekly rate needed to hit it; calorie/protein adherence including workout burn totals; and 2-3 specific adjustments (training, nutrition, recovery). Be concrete with numbers."""
     elif analysis_type == "weekly":
         prompt = f"""You are an expert fitness coach. Analyze the user's week using the pre-computed weekly_summary (compact daily rollups — do NOT ask for more data).
 
@@ -456,7 +462,11 @@ async def evaluate_goal_plan(goal_data: dict) -> dict:
         f"The deadline is {target_date.isoformat()} with {weeks} weeks remaining. "
         "weeks_until_deadline is pre-calculated — use that exact number; do not compute weeks yourself."
         if target_date
-        else f"Today is {date.today().isoformat()}. No deadline was provided (weeks_until_deadline is null)."
+        else (
+            f"Today is {date.today().isoformat()}. No deadline was provided "
+            "(weeks_until_deadline is null). You MUST recommend the best realistic timeline "
+            "to reach their full goal."
+        )
     )
 
     result = _generate_json(
@@ -478,7 +488,13 @@ Analyze feasibility if a target_date is provided. Use evidence-based rates:
 
 If the deadline is unrealistic, set realistic=false and intensity="extreme". Explain what they CAN achieve by the deadline with an aggressive plan. Do not falsely promise the full target.
 
-If no target_date, set realistic=true, intensity="none", and leave timeline fields empty strings.
+If no target_date (NO DEADLINE PROVIDED):
+- Calculate the best realistic timeline to achieve the FULL goal using age, gender, current weight, body fat/condition, and goal type from the data.
+- For women: factor in life-stage physiology — perimenopause/menopause (~45–55) can slow fat loss, reduce muscle gain rate, and affect recovery/sleep; adjust timelines conservatively. Consider menstrual-cycle effects on energy and water retention where relevant.
+- For men: factor in age-related recovery capacity and muscle-loss risk (especially 40+).
+- Use sustainable evidence-based rates (see above); do NOT promise unrealistically fast results.
+- Set realistic=true and intensity to "sustainable" or "aggressive" as appropriate for the recommended plan.
+- Populate headline, expected_by_deadline, and aggressive_plan with the recommended timeline (weeks/months) and what they can expect by then. Fill projected_body_fat, projected_weight, and/or projected_lift with realistic end-state values for that timeline.
 
 NUTRITION TARGET RULES (critical):
 - Use gender and age (when provided) to estimate TDEE and realistic calorie/protein targets.
