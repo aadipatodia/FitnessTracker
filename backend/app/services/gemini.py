@@ -13,6 +13,12 @@ from app.services.goal_nutrition import apply_stated_nutrition_targets, parse_st
 
 logger = logging.getLogger("gemini")
 
+INDIA_CONTEXT = (
+    "CONTEXT (important): All users are Indian. Food products and logged meals are Indian "
+    "cuisine and locally available brands/portions. Estimate calories, protein, carbs, fat, "
+    "and all nutrition breakdowns using Indian food reference values — not US/Western databases."
+)
+
 
 def setup_gemini_logging() -> None:
     configure_logger("gemini", "gemini.log")
@@ -123,6 +129,8 @@ async def estimate_meal_nutrition(food_input: str) -> dict:
 
     prompt = f"""You are a nutrition expert. Parse the user's meal description into distinct food items and estimate macros for each.
 
+{INDIA_CONTEXT}
+
 User input: {food_input}
 
 Rules:
@@ -222,6 +230,8 @@ async def generate_coaching_analysis(user_data: dict, analysis_type: str = "dail
     if analysis_type == "goal":
         prompt = f"""You are an expert fitness coach. Analyze the user's cumulative progress toward their active goal and give actionable advice to reach it by the deadline.
 
+{INDIA_CONTEXT}
+
 Data is a compact summary from goal start through {analysis_date}. Use goal_progress for metrics — do not invent data.
 
 {recovery_rules}
@@ -251,6 +261,8 @@ Insight type MUST be one of: daily, weekly, progression, nutrition, goal_estimat
 Cover: current progress vs targets, whether they are on track for target_date, weekly rate needed to hit deadline, calorie/protein adherence including workout burn totals, and 2-3 specific adjustments (training, nutrition, recovery). Be concrete with numbers."""
     elif analysis_type == "weekly":
         prompt = f"""You are an expert fitness coach. Analyze the user's week using the pre-computed weekly_summary (compact daily rollups — do NOT ask for more data).
+
+{INDIA_CONTEXT}
 
 The week ends on {analysis_date} ({user_data.get("period_start")} to {user_data.get("period_end")}).
 
@@ -284,6 +296,8 @@ Insight type MUST be one of: daily, weekly, progression, nutrition, goal_estimat
 Reference strength_changes and daily_rollups (include calories_burned per day). Include one goal_estimate insight on deadline progress."""
     else:
         prompt = f"""You are an expert fitness coach. Analyze ONLY the single day {analysis_date}.
+
+{INDIA_CONTEXT}
 
 CRITICAL RULES:
 - Every insight MUST be about {analysis_date} only.
@@ -344,6 +358,8 @@ async def generate_goal_guidance(
         profile.append(f"Age: {age}")
 
     prompt = f"""You are an expert fitness coach helping a user set up their goal.
+
+{INDIA_CONTEXT}
 
 Goal category: {goal_type}
 User's end goal: {end_goal or "Not specified yet"}
@@ -447,6 +463,8 @@ async def evaluate_goal_plan(goal_data: dict) -> dict:
         "goal_evaluate",
         enriched,
         f"""You are an expert fitness coach assessing a user's goal plan.
+
+{INDIA_CONTEXT}
 
 Goal data:
 {json.dumps(enriched, indent=2, default=str)}
