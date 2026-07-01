@@ -163,22 +163,22 @@ export function CheckpointsPage() {
               value={selectedDate}
               onChange={(e) => handleDateChange(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-meta">
               Same {templates.length > 0 ? templates.length : ''} checkpoint{templates.length === 1 ? '' : 's'} every day for {formatDate(selectedDate)} — check off what you completed
             </p>
           </div>
 
           {daily && daily.total > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
+              <div className="flex items-center justify-between text-base">
+                <span className="text-secondary-foreground">
                   {daily.completed_count} of {daily.total} completed
                 </span>
-                <span className="font-medium text-primary">{progressPercent}%</span>
+                <span className="text-lg font-bold text-primary">{progressPercent}%</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-secondary">
+              <div className="luxury-progress h-3">
                 <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  className="luxury-progress-fill"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -217,7 +217,7 @@ export function CheckpointsPage() {
                     <span
                       className={cn(
                         'flex-1 font-medium',
-                        item.completed && 'text-muted-foreground line-through'
+                        item.completed && 'text-secondary-foreground/70 line-through'
                       )}
                     >
                       {item.title}
@@ -227,7 +227,7 @@ export function CheckpointsPage() {
               ))}
             </ul>
           ) : (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+            <p className="py-6 text-center text-empty">
               No checkpoints yet. Add some below to start tracking your daily habits.
             </p>
           )}
@@ -241,7 +241,7 @@ export function CheckpointsPage() {
           <CardTitle>Manage checkpoints</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body-secondary">
             Add items once — they appear on every day&apos;s checklist automatically. Edit or delete here only when you want to change your routine.
           </p>
 
@@ -291,7 +291,7 @@ export function CheckpointsPage() {
                     </>
                   ) : (
                     <>
-                      <span className="flex-1 text-sm font-medium">{checkpoint.title}</span>
+                      <span className="flex-1 text-base font-medium">{checkpoint.title}</span>
                       <Button
                         type="button"
                         variant="ghost"

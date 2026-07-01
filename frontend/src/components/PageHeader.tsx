@@ -7,9 +7,9 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, className = '' }: PageHeaderProps) {
   return (
     <div className={`animate-fade-up ${className}`}>
-      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight gradient-text-subtle">{title}</h1>
+      <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">{title}</h1>
       {subtitle && (
-        <p className="mt-1.5 text-sm sm:text-base text-muted-foreground">{subtitle}</p>
+        <p className="mt-2 text-base sm:text-lg text-secondary-foreground">{subtitle}</p>
       )}
     </div>
   )

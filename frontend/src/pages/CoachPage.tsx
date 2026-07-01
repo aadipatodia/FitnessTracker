@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { FormattedText } from '@/components/FormattedText'
 import { formatDate, todayISO } from '@/lib/utils'
 
 type AnalysisType = 'daily' | 'weekly' | 'goal'
@@ -82,23 +83,23 @@ function CalorieBalanceSummary({ metadata }: { metadata: CoachingInsight['metada
   return (
     <div className="mt-3 space-y-2">
       <div className="grid gap-2 grid-cols-2 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-          <p className="text-xs text-muted-foreground">Eaten</p>
-          <p className="font-medium">{Math.round(balance.calories_consumed ?? 0)} kcal</p>
+        <div className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+          <p className="text-label text-[0.75rem]">Eaten</p>
+          <p className="font-semibold text-foreground">{Math.round(balance.calories_consumed ?? 0)} kcal</p>
         </div>
-        <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-          <p className="text-xs text-muted-foreground">Workout burn</p>
-          <p className="font-medium">{Math.round(workoutBurn)} kcal</p>
+        <div className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+          <p className="text-label text-[0.75rem]">Workout burn</p>
+          <p className="font-semibold text-foreground">{Math.round(workoutBurn)} kcal</p>
         </div>
-        <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-          <p className="text-xs text-muted-foreground">Intake target</p>
-          <p className="font-medium">{balance.target_calories} kcal</p>
+        <div className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+          <p className="text-label text-[0.75rem]">Intake target</p>
+          <p className="font-semibold text-foreground">{balance.target_calories} kcal</p>
         </div>
         {burnTarget != null && (
-          <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-            <p className="text-xs text-muted-foreground">Burn target</p>
-            <p className="font-medium">{Math.round(burnTarget)} kcal</p>
-            <p className="text-[10px] text-muted-foreground">
+          <div className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
+            <p className="text-label text-[0.75rem]">Burn target</p>
+            <p className="font-semibold text-foreground">{Math.round(burnTarget)} kcal</p>
+            <p className="text-sm text-secondary-foreground">
               {burnTargetMode === 'surplus_offset'
                 ? burnTarget > 0
                   ? 'extra to burn'
@@ -107,18 +108,18 @@ function CalorieBalanceSummary({ metadata }: { metadata: CoachingInsight['metada
             </p>
           </div>
         )}
-        <div className="rounded-lg bg-primary/10 px-3 py-2 text-sm">
-          <p className="text-xs text-muted-foreground">
+        <div className="rounded-lg bg-primary/10 px-3 py-2.5 text-sm">
+          <p className="text-label text-[0.75rem]">
             {(balance.calories_over_target ?? 0) > 0 ? 'Over target' : 'Remaining'}
           </p>
-          <p className="font-medium text-primary">
+          <p className="font-semibold text-primary">
             {(balance.calories_over_target ?? 0) > 0
               ? `${Math.round(balance.calories_over_target ?? 0)} kcal`
               : `${Math.round(balance.calories_remaining_to_eat ?? 0)} kcal`}
           </p>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-secondary-foreground">
         ~{Math.round(everyday)} kcal everyday movement (auto, from body weight)
         {burnTargetMode === 'surplus_offset' && overTarget > 0 && (
           <>
@@ -152,8 +153,8 @@ function InsightCard({ insight }: { insight: CoachingInsight }) {
             {insightIcons[insight.insight_type] || <Brain className="h-4 w-4" />}
           </div>
           <div className="flex-1">
-            <CardTitle className="text-base">{insight.title}</CardTitle>
-            <p className="text-xs text-muted-foreground capitalize">
+            <CardTitle className="text-lg">{insight.title}</CardTitle>
+            <p className="text-sm text-secondary-foreground capitalize">
               {insight.insight_type.replace('_', ' ')}
               {' · '}
               {insight.metadata_json?.analysis_type === 'weekly'
@@ -164,12 +165,12 @@ function InsightCard({ insight }: { insight: CoachingInsight }) {
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-sm leading-relaxed">{insight.content}</p>
+        <FormattedText text={insight.content} />
         {insight.metadata_json?.analysis_type === 'daily' && (
           <CalorieBalanceSummary metadata={insight.metadata_json} />
         )}
         {insight.metadata_json?.calorie_recommendation != null && (
-          <div className="mt-3 rounded-lg bg-emerald-400/10 px-3 py-2 text-sm text-emerald-300">
+          <div className="mt-4 rounded-lg bg-emerald-400/15 px-4 py-3 text-base font-medium text-emerald-200">
             Calorie target: {String(insight.metadata_json.calorie_recommendation)} kcal/day
             {insight.metadata_json.protein_recommendation != null && (
               <> · Protein target: {String(insight.metadata_json.protein_recommendation)}g</>
@@ -177,7 +178,7 @@ function InsightCard({ insight }: { insight: CoachingInsight }) {
           </div>
         )}
         {insight.metadata_json?.goal_completion_weeks != null && (
-          <div className="mt-3 rounded-lg bg-violet-400/10 px-3 py-2 text-sm text-violet-300">
+          <div className="mt-4 rounded-lg bg-violet-400/15 px-4 py-3 text-base font-medium text-violet-200">
             Estimated goal completion: {String(insight.metadata_json.goal_completion_weeks)} weeks
           </div>
         )}
@@ -238,7 +239,7 @@ export function CoachPage() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="space-y-1.5">
-            <label htmlFor="analysis-date" className="text-xs font-medium text-muted-foreground">
+            <label htmlFor="analysis-date" className="text-label text-[0.75rem]">
               Analyze date
             </label>
             <Input
@@ -283,8 +284,8 @@ export function CoachPage() {
               <Brain className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold">How it works</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h3 className="text-lg font-semibold text-foreground">How it works</h3>
+              <p className="mt-2 text-body-secondary">
                 Analyze Day covers only the selected date. Weekly Summary uses a compact 7-day rollup
                 (less data sent to AI). Goal Progress reviews everything since your goal was set and
                 advises on hitting your deadline.
@@ -303,8 +304,8 @@ export function CoachPage() {
         <ScrollReveal>
           <Card>
           <CardContent className="py-12 text-center">
-            <Brain className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">
+            <Brain className="mx-auto h-12 w-12 text-secondary-foreground mb-4" />
+            <p className="text-empty">
               No insights for {formatDate(analysisDate)} yet. Run an analysis above.
             </p>
             <Button
@@ -327,8 +328,8 @@ export function CoachPage() {
                 <section className="space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold">{title}</h2>
-                    <p className="text-sm text-muted-foreground">{description}</p>
+                    <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+                    <p className="text-body-secondary">{description}</p>
                   </div>
                   <Button
                     variant="ghost"

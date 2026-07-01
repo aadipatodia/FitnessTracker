@@ -74,9 +74,9 @@ export function DietPage() {
         ].map(({ label, value, unit }, i) => (
           <ScrollReveal key={label} delay={revealDelay(i, 80)} animation="scale">
             <div className="luxury-card rounded-xl p-4 text-center h-full">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
-              <p className="text-2xl font-bold font-display gradient-text-subtle">
-                {value}<span className="text-sm font-normal text-muted-foreground ml-1">{unit}</span>
+              <p className="text-label">{label}</p>
+              <p className="text-2xl font-bold font-display text-foreground">
+                {value}<span className="text-base font-medium text-secondary-foreground ml-1">{unit}</span>
               </p>
             </div>
           </ScrollReveal>
@@ -116,7 +116,7 @@ export function DietPage() {
                 placeholder="e.g. 2 rotis + dal + 150g paneer"
                 rows={3}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-meta">
                 Gemini estimates calories and macros from your description.
               </p>
             </div>
@@ -141,7 +141,7 @@ export function DietPage() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base capitalize">{log.meal_type || 'Meal'}</CardTitle>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{formatDate(log.log_date)}</span>
+                    <span className="text-meta">{formatDate(log.log_date)}</span>
                     <Button
                       type="button"
                       variant="ghost"
@@ -156,26 +156,26 @@ export function DietPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y--2">
+                <div className="space-y-2">
                   {log.entries.map((entry) => (
-                    <div key={entry.id} className="flex flex-col gap-2 rounded-lg bg-muted/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div key={entry.id} className="flex flex-col gap-2 rounded-lg bg-muted/50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium">{entry.food_name}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-base font-semibold text-foreground">{entry.food_name}</p>
+                        <p className="text-meta">
                           {entry.quantity} {entry.unit}
-                          <span className="ml-2 rounded bg-accent/10 px-1.5 py-0.5 text-accent">AI</span>
+                          <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 text-accent font-medium">AI</span>
                         </p>
                       </div>
-                      <div className="text-left text-xs sm:text-right shrink-0">
-                        <p>{Math.round(entry.calories)} kcal</p>
-                        <p className="text-muted-foreground">P:{Math.round(entry.protein_g)}g C:{Math.round(entry.carbs_g)}g F:{Math.round(entry.fat_g)}g</p>
+                      <div className="text-left text-sm sm:text-right shrink-0">
+                        <p className="font-semibold text-foreground">{Math.round(entry.calories)} kcal</p>
+                        <p className="text-meta">P:{Math.round(entry.protein_g)}g C:{Math.round(entry.carbs_g)}g F:{Math.round(entry.fat_g)}g</p>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 flex flex-col gap-1 border-t border-border pt-3 text-sm sm:flex-row sm:justify-between">
-                  <span className="text-muted-foreground">Total</span>
-                  <span className="text-sm">
+                <div className="mt-3 flex flex-col gap-1 border-t border-border pt-3 text-base sm:flex-row sm:justify-between">
+                  <span className="text-label normal-case">Total</span>
+                  <span className="font-semibold text-foreground">
                     {Math.round(log.total_calories)} kcal · P:{Math.round(log.total_protein)}g · C:{Math.round(log.total_carbs)}g · F:{Math.round(log.total_fat)}g
                   </span>
                 </div>

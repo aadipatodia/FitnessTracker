@@ -103,8 +103,8 @@ export function GoalPlanAssessment({
               key={label}
               className="rounded-lg border border-border/50 bg-background/40 px-3 py-2"
             >
-              <p className="text-xs text-muted-foreground">{label} by deadline</p>
-              <p className="mt-0.5 text-sm font-semibold text-foreground">{value}</p>
+              <p className="text-label normal-case">{label} by deadline</p>
+              <p className="mt-1 text-base font-semibold text-foreground">{value}</p>
             </div>
           ))}
         </div>
@@ -113,7 +113,7 @@ export function GoalPlanAssessment({
       <div className="space-y-4 px-4 py-4">
         {feasibility.expected_by_deadline && (
           <section>
-            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground/80">
+            <div className="mb-2 flex items-center gap-1.5 text-label normal-case">
               <Target className="h-3.5 w-3.5" />
               What to expect
             </div>
@@ -123,7 +123,7 @@ export function GoalPlanAssessment({
 
         {feasibility.aggressive_plan && (
           <section>
-            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground/80">
+            <div className="mb-2 flex items-center gap-1.5 text-label normal-case">
               <TrendingUp className="h-3.5 w-3.5" />
               Recommended approach
             </div>
@@ -140,7 +140,7 @@ export function GoalPlanAssessment({
             onChange={(e) => onAckChange(e.target.checked)}
             className="mt-1"
           />
-          <span className="text-muted-foreground">
+          <span className="text-body-secondary">
             I understand the expected outcome above and want to proceed with an{' '}
             <span className="font-medium text-foreground">{feasibility.intensity}</span> plan anyway.
           </span>

@@ -16,7 +16,7 @@ import { formatDate } from '@/lib/utils'
 const CHART_GOLD = '#c9a962'
 const CHART_CHAMPAGNE = '#e8d5b5'
 const CHART_GRID = 'rgba(201, 169, 98, 0.08)'
-const CHART_AXIS = '#8a8278'
+const CHART_AXIS = '#c4b89a'
 const TOOLTIP_STYLE = {
   background: 'rgba(16, 14, 12, 0.95)',
   border: '1px solid rgba(201, 169, 98, 0.2)',
@@ -73,11 +73,11 @@ export function DashboardPage() {
         subtitle={stats?.active_goal?.title || 'Track your fitness journey'}
       />
 
-      <ScrollReveal animation="blur-up" duration={800}>
+      <ScrollReveal animation="fade-up" duration={800}>
         <GoalSection stats={stats} />
       </ScrollReveal>
 
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
         {statItems.map((item, i) => (
           <ScrollReveal key={item.title} delay={revealDelay(i, 70)} animation="scale">
             <StatCard {...item} />
@@ -90,8 +90,8 @@ export function DashboardPage() {
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={charts?.weight_trend ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
-              <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={11} />
-              <YAxis stroke={CHART_AXIS} fontSize={11} domain={['auto', 'auto']} />
+              <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} />
+              <YAxis stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} domain={['auto', 'auto']} />
               <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(d) => formatDate(d)} />
               <Line type="monotone" dataKey="value" stroke={CHART_GOLD} strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: CHART_GOLD, stroke: CHART_CHAMPAGNE }} />
             </LineChart>
@@ -102,8 +102,8 @@ export function DashboardPage() {
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={charts?.body_fat_trend ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
-              <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={11} />
-              <YAxis stroke={CHART_AXIS} fontSize={11} domain={['auto', 'auto']} />
+              <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} />
+              <YAxis stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} domain={['auto', 'auto']} />
               <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(d) => formatDate(d)} />
               <Line type="monotone" dataKey="value" stroke={CHART_CHAMPAGNE} strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: CHART_CHAMPAGNE, stroke: CHART_GOLD }} />
             </LineChart>
@@ -114,8 +114,8 @@ export function DashboardPage() {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={charts?.protein_intake ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
-              <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={11} />
-              <YAxis stroke={CHART_AXIS} fontSize={11} unit="g" />
+              <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} />
+              <YAxis stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} unit="g" />
               <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(d) => formatDate(d)} />
               <Bar dataKey="value" fill={CHART_GOLD} radius={[6, 6, 0, 0]} />
             </BarChart>
@@ -126,8 +126,8 @@ export function DashboardPage() {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={charts?.calories_intake ?? []}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
-              <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={11} />
-              <YAxis stroke={CHART_AXIS} fontSize={11} />
+              <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} />
+              <YAxis stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} />
               <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(d) => formatDate(d)} />
               <Bar dataKey="value" fill={CHART_CHAMPAGNE} radius={[6, 6, 0, 0]} />
             </BarChart>
@@ -138,7 +138,7 @@ export function DashboardPage() {
       <ScrollReveal animation="fade-up" delay={100}>
         <div className="space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg font-semibold font-display gradient-text-subtle">Exercise Progress</h2>
+            <h2 className="text-xl font-semibold font-display text-foreground">Exercise Progress</h2>
             <Link
               to="/workout-graph"
               className="text-sm text-primary hover:text-accent transition-colors font-medium"

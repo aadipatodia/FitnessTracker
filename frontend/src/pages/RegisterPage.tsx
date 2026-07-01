@@ -44,7 +44,7 @@ export function RegisterPage() {
             </div>
           </div>
           <h1 className="text-4xl font-bold gradient-text font-display">FitAI Coach</h1>
-          <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-body-secondary">
             <Sparkles className="h-3.5 w-3.5 text-primary/70" />
             Start your transformation today
           </p>
@@ -74,7 +74,7 @@ export function RegisterPage() {
                 {loading ? 'Creating account...' : 'Create account'}
               </Button>
             </form>
-            <p className="mt-5 text-center text-sm text-muted-foreground">
+            <p className="mt-5 text-center text-meta">
               Already have an account?{' '}
               <Link to="/login" className="text-primary hover:text-accent transition-colors font-medium">
                 Sign in

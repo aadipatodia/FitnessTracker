@@ -2,8 +2,17 @@ type Block =
   | { type: 'paragraph'; text: string }
   | { type: 'list'; ordered: boolean; items: string[] }
 
+function preprocessMarkdown(text: string): string {
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/\s+\*\s+(?=\*\*)/g, '\n- ')
+    .replace(/^\*\s+/gm, '- ')
+    .replace(/\s+\*$/gm, '')
+    .trim()
+}
+
 function parseBlocks(text: string): Block[] {
-  const lines = text.replace(/\r\n/g, '\n').split('\n')
+  const lines = preprocessMarkdown(text).split('\n')
   const blocks: Block[] = []
   let currentList: { ordered: boolean; items: string[] } | null = null
   let paragraphLines: string[] = []
@@ -58,18 +67,29 @@ function parseBlocks(text: string): Block[] {
   return blocks
 }
 
-function parseInline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g)
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return (
-        <strong key={i} className="font-medium text-foreground">
-          {part.slice(2, -2)}
-        </strong>
-      )
-    }
-    return part
-  })
+function cleanInlineText(text: string): string {
+  return text.replace(/^\*\s*/, '').replace(/\s*\*$/, '').trim()
+}
+
+function parseInline(text: string): React.ReactNode[] {
+  const cleaned = cleanInlineText(text)
+  const segments = cleaned.split(/(\*\*[^*]+\*\*)/g).filter((segment) => segment.length > 0)
+
+  return segments
+    .map((segment, i) => {
+      if (segment.startsWith('**') && segment.endsWith('**')) {
+        return (
+          <strong key={i} className="font-semibold text-foreground">
+            {segment.slice(2, -2)}
+          </strong>
+        )
+      }
+
+      const plain = segment.replace(/\*/g, '')
+      if (!plain) return null
+      return <span key={i}>{plain}</span>
+    })
+    .filter(Boolean) as React.ReactNode[]
 }
 
 export function FormattedText({ text, className = '' }: { text: string; className?: string }) {
@@ -78,7 +98,7 @@ export function FormattedText({ text, className = '' }: { text: string; classNam
   const blocks = parseBlocks(text)
 
   return (
-    <div className={`space-y-3 text-sm leading-relaxed text-muted-foreground ${className}`.trim()}>
+    <div className={`space-y-3 text-base leading-relaxed text-secondary-foreground ${className}`.trim()}>
       {blocks.map((block, i) => {
         if (block.type === 'paragraph') {
           return <p key={i}>{parseInline(block.text)}</p>
@@ -86,13 +106,13 @@ export function FormattedText({ text, className = '' }: { text: string; classNam
 
         const ListTag = block.ordered ? 'ol' : 'ul'
         const listClass = block.ordered
-          ? 'list-decimal space-y-1.5 pl-5'
-          : 'list-disc space-y-1.5 pl-5'
+          ? 'list-decimal space-y-2 pl-5 marker:text-accent'
+          : 'list-disc space-y-2 pl-5 marker:text-accent'
 
         return (
           <ListTag key={i} className={listClass}>
             {block.items.map((item, j) => (
-              <li key={j}>{parseInline(item)}</li>
+              <li key={j} className="pl-1">{parseInline(item)}</li>
             ))}
           </ListTag>
         )

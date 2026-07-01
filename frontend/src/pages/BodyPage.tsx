@@ -97,7 +97,7 @@ export function BodyPage() {
         </div>
       ) : metrics.length === 0 ? (
         <ScrollReveal>
-          <Card><CardContent className="py-12 text-center text-muted-foreground">No metrics logged yet.</CardContent></Card>
+          <Card><CardContent className="py-12 text-center text-empty">No metrics logged yet.</CardContent></Card>
         </ScrollReveal>
       ) : (
         <div className="space-y-3">
@@ -106,9 +106,9 @@ export function BodyPage() {
               <Card>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="font-medium">{formatDate(m.recorded_date)}</span>
+                  <span className="font-semibold text-foreground">{formatDate(m.recorded_date)}</span>
                   <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-base font-medium text-foreground">
                       {m.weight_kg && <span>{m.weight_kg} kg</span>}
                       {m.body_fat_percent && <span>{m.body_fat_percent}% BF</span>}
                     </div>
@@ -124,7 +124,7 @@ export function BodyPage() {
                     </Button>
                   </div>
                 </div>
-                {m.notes && <p className="mt-2 text-sm text-muted-foreground">{m.notes}</p>}
+                {m.notes && <p className="mt-2 text-body-secondary">{m.notes}</p>}
               </CardContent>
               </Card>
             </ScrollReveal>

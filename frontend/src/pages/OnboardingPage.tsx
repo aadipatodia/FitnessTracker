@@ -335,7 +335,7 @@ export function OnboardingPage() {
       <div className="w-full max-w-2xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold gradient-text">Set Your Goal</h1>
-          <p className="mt-2 text-muted-foreground">Tell us where you want to end up — we'll guide the path</p>
+          <p className="mt-2 text-body-secondary">Tell us where you want to end up — we'll guide the path</p>
           <div className="mt-4 flex justify-center gap-2">
             {[0, 1, 2].map((s) => (
               <div
@@ -366,9 +366,9 @@ export function OnboardingPage() {
                         : 'border-border hover:border-primary/50'
                     }`}
                   >
-                    <Icon className={`mb-2 h-5 w-5 ${selected ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <Icon className={`mb-2 h-5 w-5 ${selected ? 'text-primary' : 'text-secondary-foreground'}`} />
                     <span className="font-medium">{label}</span>
-                    <span className="text-xs text-muted-foreground mt-1">{desc}</span>
+                    <span className="text-meta mt-1">{desc}</span>
                   </button>
                 )
               })}
@@ -469,7 +469,7 @@ export function OnboardingPage() {
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   </div>
                 ) : (
-                  <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                  <ul className="mt-2 space-y-1 text-body-secondary">
                     {(guidance?.tips ?? []).map((tip) => (
                       <li key={tip}>• {tip}</li>
                     ))}
@@ -530,7 +530,7 @@ export function OnboardingPage() {
                   value={targetDate}
                   onChange={(e) => setTargetDate(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-meta">
                   Fill in your targets, then click Start coaching — we'll analyze your full plan in one go.
                 </p>
               </div>
@@ -546,7 +546,7 @@ export function OnboardingPage() {
               )}
 
               {planLoading && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-meta">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   Analyzing your plan…
                 </div>

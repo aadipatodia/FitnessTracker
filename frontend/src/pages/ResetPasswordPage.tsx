@@ -74,7 +74,7 @@ export function ResetPasswordPage() {
             </div>
           </div>
           <h1 className="text-4xl font-bold gradient-text font-display">FitAI Coach</h1>
-          <p className="mt-3 text-sm text-muted-foreground">Reset your account password</p>
+          <p className="mt-3 text-body-secondary">Reset your account password</p>
         </div>
 
         <Card className="animate-fade-up stagger-2 border-primary/20">
@@ -134,7 +134,7 @@ export function ResetPasswordPage() {
                     placeholder="Paste your reset token"
                     required
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-meta">
                     Token expires in 15 minutes. In production this would be sent by email.
                   </p>
                 </div>
@@ -180,7 +180,7 @@ export function ResetPasswordPage() {
 
             {step === 'done' && (
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-body-secondary">
                   You can now sign in with your new password.
                 </p>
                 <Button className="w-full" onClick={() => navigate('/login')}>
@@ -190,7 +190,7 @@ export function ResetPasswordPage() {
             )}
 
             {step !== 'done' && (
-              <p className="mt-4 text-center text-sm text-muted-foreground">
+              <p className="mt-4 text-center text-meta">
                 Remember your password?{' '}
                 <Link to="/login" className="text-primary hover:text-accent transition-colors font-medium">
                   Sign in

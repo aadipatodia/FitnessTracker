@@ -212,15 +212,15 @@ export function WorkoutsPage() {
                           <p className="text-sm font-medium">Set {set.set_number}</p>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
-                              <span className="text-xs text-muted-foreground">Weight (kg)</span>
+                              <span className="text-label text-[0.75rem] normal-case">Weight (kg)</span>
                               <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
                             </div>
                             <div className="space-y-1">
-                              <span className="text-xs text-muted-foreground">Reps</span>
+                              <span className="text-label text-[0.75rem] normal-case">Reps</span>
                               <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
                             </div>
                             <div className="space-y-1 col-span-2">
-                              <span className="text-xs text-muted-foreground">Rest (seconds)</span>
+                              <span className="text-label text-[0.75rem] normal-case">Rest (seconds)</span>
                               <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
                             </div>
                           </div>
@@ -230,7 +230,7 @@ export function WorkoutsPage() {
 
                     {/* Tablet/desktop: table grid */}
                     <div className="hidden md:block space-y-2">
-                      <div className="grid grid-cols-5 gap-2 text-xs text-muted-foreground px-1">
+                      <div className="grid grid-cols-5 gap-2 text-label text-[0.75rem] normal-case px-1">
                         <span>Set</span><span>Weight (kg)</span><span>Reps</span><span>Rest (s)</span><span></span>
                       </div>
                       {ex.sets.map((set, setIdx) => (
@@ -274,7 +274,7 @@ export function WorkoutsPage() {
       ) : workouts.length === 0 ? (
         <ScrollReveal>
           <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
+            <CardContent className="py-12 text-center text-empty">
               No workouts logged yet. Start tracking your training!
             </CardContent>
           </Card>
@@ -288,9 +288,9 @@ export function WorkoutsPage() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base">{w.name || 'Workout'}</CardTitle>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{formatDate(w.workout_date)}</span>
+                    <span className="text-meta">{formatDate(w.workout_date)}</span>
                     {(w.calories_burned ?? 0) > 0 && (
-                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      <span className="rounded-md bg-primary/15 px-2.5 py-1 text-sm font-semibold text-primary">
                         ~{Math.round(w.calories_burned ?? 0)} kcal burned
                       </span>
                     )}
@@ -311,10 +311,10 @@ export function WorkoutsPage() {
                 <div className="space-y-3">
                   {w.exercises.map((ex) => (
                     <div key={ex.id}>
-                      <p className="font-medium text-sm">{ex.exercise_name}</p>
-                      <div className="mt-1 flex flex-wrap gap-2">
+                      <p className="font-semibold text-base text-foreground">{ex.exercise_name}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
                         {ex.sets.map((s) => (
-                          <span key={s.id} className="rounded-md bg-muted px-2 py-1 text-xs">
+                          <span key={s.id} className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-1.5 text-sm font-medium text-foreground">
                             {s.weight_kg ? `${s.weight_kg}kg × ` : ''}{s.reps ?? '?'} reps
                           </span>
                         ))}
@@ -333,7 +333,7 @@ export function WorkoutsPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-border">
         <div>
           <h2 className="text-xl font-semibold">Cardio</h2>
-          <p className="text-sm text-muted-foreground">Log running, cycling, swimming, and other cardio</p>
+          <p className="text-body-secondary">Log running, cycling, swimming, and other cardio</p>
         </div>
         <Button variant="outline" onClick={() => setShowCardioForm(!showCardioForm)} className="w-full sm:w-auto">
           <HeartPulse className="h-4 w-4" />
@@ -396,14 +396,14 @@ export function WorkoutsPage() {
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">{c.activity_name}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="font-semibold text-foreground">{c.activity_name}</p>
+                    <p className="text-meta">
                       {formatDate(c.log_date)} · {c.duration_minutes} min
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {(c.calories_burned ?? 0) > 0 && (
-                      <span className="rounded-md bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                      <span className="rounded-md bg-accent/15 px-2.5 py-1 text-sm font-semibold text-accent">
                         ~{Math.round(c.calories_burned)} kcal
                       </span>
                     )}

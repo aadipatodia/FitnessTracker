@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/utils'
 
 const CHART_COLORS = ['#c9a962', '#e8d5b5', '#a8893a', '#d4b872', '#8a7140', '#f5e6c8', '#b8954a']
 const CHART_GRID = 'rgba(201, 169, 98, 0.08)'
-const CHART_AXIS = '#8a8278'
+const CHART_AXIS = '#c4b89a'
 const tooltipStyle = {
   background: 'rgba(16, 14, 12, 0.95)',
   border: '1px solid rgba(201, 169, 98, 0.2)',
@@ -50,7 +50,7 @@ export function ExerciseProgressCharts({
     return (
       <ScrollReveal>
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">{emptyMessage}</CardContent>
+          <CardContent className="py-12 text-center text-empty">{emptyMessage}</CardContent>
         </Card>
       </ScrollReveal>
     )
@@ -66,14 +66,14 @@ export function ExerciseProgressCharts({
         >
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">{name}</CardTitle>
+              <CardTitle className="text-lg">{name}</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={chartHeight}>
                 <LineChart data={byExercise[name]}>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
-                  <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={11} />
-                  <YAxis stroke={CHART_AXIS} fontSize={11} unit=" kg" domain={['auto', 'auto']} />
+                  <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} />
+                  <YAxis stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} unit=" kg" domain={['auto', 'auto']} />
                   <Tooltip
                     contentStyle={tooltipStyle}
                     labelFormatter={(d) => formatDate(d)}

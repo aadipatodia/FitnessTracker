@@ -51,14 +51,14 @@ function MetricPair({
   if (!target && !current) return null
   return (
     <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 transition-all duration-300 hover:border-primary/20 hover:bg-secondary/50">
-      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-accent">
         {icon}
         {label}
       </div>
-      <p className="mt-1.5 text-sm font-medium font-display">
+      <p className="mt-2 text-lg font-semibold font-display text-foreground">
         {current != null ? `${current}${unit}` : '—'}
         {target != null && (
-          <span className="text-muted-foreground"> → {target}{unit}</span>
+          <span className="text-secondary-foreground font-medium"> → {target}{unit}</span>
         )}
       </p>
     </div>
@@ -78,7 +78,7 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
             </div>
             <div>
               <h2 className="text-lg font-semibold">Set your fitness goal</h2>
-              <p className="mt-1 text-sm text-muted-foreground max-w-md">
+              <p className="mt-1 text-body-secondary max-w-md">
                 Define your end goal, set a deadline, and get AI-guided coaching tailored to what you want to achieve.
               </p>
             </div>
@@ -117,13 +117,13 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <CardTitle className="text-lg">{goal.title}</CardTitle>
-              <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary ring-1 ring-primary/20">
+              <CardTitle className="text-xl">{goal.title}</CardTitle>
+              <span className="rounded-full bg-primary/20 px-3 py-1 text-sm font-semibold text-primary ring-1 ring-primary/30">
                 {GOAL_TYPE_LABELS[goal.goal_type] ?? goal.goal_type}
               </span>
             </div>
             {description && (
-              <p className="text-sm text-muted-foreground">{description}</p>
+              <p className="text-base leading-relaxed text-foreground/90">{description}</p>
             )}
           </div>
           <Link to="/onboarding">
@@ -134,8 +134,8 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
       <CardContent className="space-y-4">
         {goal.target_date && (
           <div
-            className={`flex items-center gap-2 text-sm ${
-              isOverdue ? 'text-amber-400' : 'text-muted-foreground'
+            className={`flex items-center gap-2 text-base font-medium ${
+              isOverdue ? 'text-amber-400' : 'text-secondary-foreground'
             }`}
           >
             {isOverdue ? (
@@ -160,11 +160,11 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
         )}
 
         <div>
-          <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-muted-foreground">Overall progress</span>
-            <span className="font-medium text-primary">{progress}%</span>
+          <div className="flex items-center justify-between text-base mb-2.5">
+            <span className="font-medium text-secondary-foreground">Overall progress</span>
+            <span className="text-lg font-bold text-primary">{progress}%</span>
           </div>
-          <div className="luxury-progress h-2.5">
+          <div className="luxury-progress h-3.5">
             <div
               className="luxury-progress-fill"
               style={{ width: `${Math.min(100, progress)}%` }}
@@ -179,7 +179,7 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
               current={currentWeight}
               target={goal.target_weight}
               unit=" kg"
-              icon={<Scale className="h-3 w-3" />}
+              icon={<Scale className="h-4 w-4" />}
             />
           )}
           {showBodyFat && (
@@ -188,7 +188,7 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
               current={currentBodyFat}
               target={goal.target_body_fat}
               unit="%"
-              icon={<Percent className="h-3 w-3" />}
+              icon={<Percent className="h-4 w-4" />}
             />
           )}
           {showStrength && goal.target_exercise && (
@@ -197,21 +197,21 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
               current={undefined}
               target={goal.target_weight_lifted}
               unit=" kg"
-              icon={<Dumbbell className="h-3 w-3" />}
+              icon={<Dumbbell className="h-4 w-4" />}
             />
           )}
           {goal.target_calories != null && (
             <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 transition-all duration-300 hover:border-primary/20">
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-                <Flame className="h-3 w-3" />
+              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-accent">
+                <Flame className="h-4 w-4" />
                 Calories today
               </div>
-              <p className="mt-1.5 text-sm font-medium font-display">
+              <p className="mt-2 text-lg font-semibold font-display text-foreground">
                 {Math.round(stats?.calories_today ?? 0)}
-                <span className="text-muted-foreground"> / {goal.target_calories} target</span>
+                <span className="text-secondary-foreground font-medium"> / {goal.target_calories} target</span>
               </p>
               {(stats?.calories_burned_today ?? 0) > 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-2 text-base text-secondary-foreground">
                   ~{Math.round(stats?.calories_burned_today ?? 0)} kcal burned today · net{' '}
                   {Math.round((stats?.calories_today ?? 0) - (stats?.calories_burned_today ?? 0))} kcal
                 </p>
@@ -220,13 +220,13 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
           )}
           {goal.target_protein != null && (
             <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 transition-all duration-300 hover:border-primary/20">
-              <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-                <Beef className="h-3 w-3" />
+              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-accent">
+                <Beef className="h-4 w-4" />
                 Protein today
               </div>
-              <p className="mt-1.5 text-sm font-medium font-display">
+              <p className="mt-2 text-lg font-semibold font-display text-foreground">
                 {Math.round(stats?.protein_today ?? 0)}g
-                <span className="text-muted-foreground"> / {goal.target_protein}g target</span>
+                <span className="text-secondary-foreground font-medium"> / {goal.target_protein}g target</span>
               </p>
             </div>
           )}

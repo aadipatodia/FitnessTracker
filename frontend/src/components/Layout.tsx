@@ -66,8 +66,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Target className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-base font-bold gradient-text font-display">FitAI Coach</h1>
-          <p className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Elite Fitness</p>
+          <h1 className="text-lg font-bold gradient-text font-display">FitAI Coach</h1>
+          <p className="text-sm uppercase tracking-wide text-accent">Elite Fitness</p>
         </div>
       </div>
 
@@ -81,13 +81,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
               onClick={() => setMobileOpen(false)}
               style={{ animationDelay: `${i * 40}ms` }}
               className={cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 animate-slide-in-left',
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-all duration-300 animate-slide-in-left',
                 active
-                  ? 'nav-active-glow text-primary'
-                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground hover:translate-x-0.5'
+                  ? 'nav-active-glow text-primary font-semibold'
+                  : 'text-foreground/75 hover:bg-secondary hover:text-foreground hover:translate-x-0.5'
               )}
             >
-              <Icon className={cn('h-4 w-4 transition-transform duration-300', active && 'text-primary')} />
+              <Icon className={cn('h-5 w-5 transition-transform duration-300', active && 'text-primary')} />
               {label}
             </Link>
           )
@@ -96,12 +96,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="border-t border-border/60 p-4">
         <div className="mb-3 rounded-xl bg-secondary/50 px-3 py-2.5 ring-1 ring-border/50">
-          <p className="text-sm font-medium truncate">{user?.full_name}</p>
-          <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+          <p className="text-sm font-semibold truncate">{user?.full_name}</p>
+          <p className="text-sm text-secondary-foreground truncate">{user?.email}</p>
         </div>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-300"
+          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-base text-secondary-foreground hover:bg-secondary hover:text-foreground transition-all duration-300"
         >
           <LogOut className="h-4 w-4" />
           Sign out
@@ -163,10 +163,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   key={path}
                   to={path}
                   className={cn(
-                    'flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-medium transition-all duration-300',
+                    'flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold transition-all duration-300',
                     active
                       ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
+                      : 'text-foreground/70 hover:text-foreground'
                   )}
                 >
                   <div className={cn(

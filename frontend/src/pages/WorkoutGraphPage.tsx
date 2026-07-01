@@ -34,7 +34,7 @@ export function WorkoutGraphPage() {
         <select
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
-          className="w-full rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 sm:w-auto"
+          className="w-full rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-base text-foreground transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 sm:w-auto"
         >
           {PERIOD_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>

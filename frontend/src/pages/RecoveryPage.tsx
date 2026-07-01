@@ -67,7 +67,7 @@ export function RecoveryPage() {
               <div className="space-y-2">
                 <Label>Date (wake-up date for sleep)</Label>
                 <Input type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-meta">
                   Sleep is counted for the night before this date through this morning.
                 </p>
               </div>
@@ -98,9 +98,9 @@ export function RecoveryPage() {
               <Card>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="font-medium">{formatDate(log.log_date)}</span>
+                  <span className="font-semibold text-foreground">{formatDate(log.log_date)}</span>
                   <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-base text-secondary-foreground">
                       {log.sleep_hours != null && <span>😴 {log.sleep_hours}h sleep</span>}
                       {log.water_liters != null && <span>💧 {log.water_liters}L water</span>}
                     </div>
