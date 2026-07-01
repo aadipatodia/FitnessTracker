@@ -28,6 +28,13 @@ const navItems = [
   { path: '/coach', label: 'AI Coach', icon: Brain },
 ]
 
+const mobileTabItems = [
+  { path: '/', label: 'Home', icon: LayoutDashboard },
+  { path: '/workouts', label: 'Workouts', icon: Dumbbell },
+  { path: '/diet', label: 'Diet', icon: UtensilsCrossed },
+  { path: '/coach', label: 'Coach', icon: Brain },
+]
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -114,7 +121,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">{children}</main>
+        <main className="flex-1 overflow-auto p-4 pb-20 md:p-6 md:pb-20 lg:p-8 lg:pb-8">{children}</main>
+
+        <nav
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden"
+          aria-label="Primary navigation"
+        >
+          <div className="grid grid-cols-4">
+            {mobileTabItems.map(({ path, label, icon: Icon }) => {
+              const active = location.pathname === path
+              return (
+                <Link
+                  key={path}
+                  to={path}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
+                    active ? 'text-primary' : 'text-muted-foreground'
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
+        </nav>
       </div>
     </div>
   )

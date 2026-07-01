@@ -101,10 +101,10 @@ export function BodyPage() {
           {metrics.map((m) => (
             <Card key={m.id}>
               <CardContent className="py-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="font-medium">{formatDate(m.recorded_date)}</span>
-                  <div className="flex items-center gap-4">
-                    <div className="flex gap-4 text-sm">
+                  <div className="flex items-center gap-2 sm:gap-4">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                       {m.weight_kg && <span>{m.weight_kg} kg</span>}
                       {m.body_fat_percent && <span>{m.body_fat_percent}% BF</span>}
                     </div>

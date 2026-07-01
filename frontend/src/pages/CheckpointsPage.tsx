@@ -242,14 +242,14 @@ export function CheckpointsPage() {
             Add items once — they appear on every day&apos;s checklist automatically. Edit or delete here only when you want to change your routine.
           </p>
 
-          <form onSubmit={handleAdd} className="flex gap-2">
+          <form onSubmit={handleAdd} className="flex flex-col gap-2 sm:flex-row">
             <Input
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="e.g. Workout 1, Protein goal, 10k steps"
               className="flex-1"
             />
-            <Button type="submit" disabled={adding || !newTitle.trim()}>
+            <Button type="submit" disabled={adding || !newTitle.trim()} className="w-full sm:w-auto shrink-0">
               <Plus className="h-4 w-4 mr-1" />
               {adding ? 'Adding...' : 'Add'}
             </Button>

@@ -66,7 +66,7 @@ export function DietPage() {
       </div>
 
       {/* Today's summary */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
         {[
           { label: 'Calories', value: Math.round(todayTotals.calories), unit: 'kcal' },
           { label: 'Protein', value: Math.round(todayTotals.protein), unit: 'g' },
@@ -116,7 +116,7 @@ export function DietPage() {
                 Gemini estimates calories and macros from your description.
               </p>
             </div>
-            <Button type="submit" disabled={saving || !foodInput.trim()}>
+            <Button type="submit" disabled={saving || !foodInput.trim()} className="w-full sm:w-auto">
               {saving ? 'Analyzing...' : 'Log food'}
             </Button>
           </form>
@@ -132,7 +132,7 @@ export function DietPage() {
           {logs.map((log) => (
             <Card key={log.id}>
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base capitalize">{log.meal_type || 'Meal'}</CardTitle>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">{formatDate(log.log_date)}</span>
@@ -152,24 +152,24 @@ export function DietPage() {
               <CardContent>
                 <div className="space-y--2">
                   {log.entries.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
-                      <div>
+                    <div key={entry.id} className="flex flex-col gap-2 rounded-lg bg-muted/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
                         <p className="text-sm font-medium">{entry.food_name}</p>
                         <p className="text-xs text-muted-foreground">
                           {entry.quantity} {entry.unit}
                           <span className="ml-2 rounded bg-accent/10 px-1.5 py-0.5 text-accent">AI</span>
                         </p>
                       </div>
-                      <div className="text-right text-xs">
+                      <div className="text-left text-xs sm:text-right shrink-0">
                         <p>{Math.round(entry.calories)} kcal</p>
                         <p className="text-muted-foreground">P:{Math.round(entry.protein_g)}g C:{Math.round(entry.carbs_g)}g F:{Math.round(entry.fat_g)}g</p>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 flex justify-between border-t border-border pt-3 text-sm">
+                <div className="mt-3 flex flex-col gap-1 border-t border-border pt-3 text-sm sm:flex-row sm:justify-between">
                   <span className="text-muted-foreground">Total</span>
-                  <span>
+                  <span className="text-sm">
                     {Math.round(log.total_calories)} kcal · P:{Math.round(log.total_protein)}g · C:{Math.round(log.total_carbs)}g · F:{Math.round(log.total_fat)}g
                   </span>
                 </div>

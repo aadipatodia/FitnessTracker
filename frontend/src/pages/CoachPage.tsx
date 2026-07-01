@@ -79,7 +79,7 @@ function CalorieBalanceSummary({ metadata }: { metadata: CoachingInsight['metada
 
   return (
     <div className="mt-3 space-y-2">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-2 grid-cols-2 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
           <p className="text-xs text-muted-foreground">Eaten</p>
           <p className="font-medium">{Math.round(balance.calories_consumed ?? 0)} kcal</p>
@@ -250,11 +250,12 @@ export function CoachPage() {
               className="w-full sm:w-44"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button
               variant="outline"
               onClick={() => runAnalysis('daily')}
               disabled={analyzing !== null || !analysisDate}
+              className="w-full sm:w-auto"
             >
               {analyzing === 'daily' ? 'Analyzing...' : 'Analyze Day'}
             </Button>
@@ -262,10 +263,11 @@ export function CoachPage() {
               variant="outline"
               onClick={() => runAnalysis('weekly')}
               disabled={analyzing !== null}
+              className="w-full sm:w-auto"
             >
               {analyzing === 'weekly' ? 'Analyzing...' : 'Weekly Summary'}
             </Button>
-            <Button onClick={() => runAnalysis('goal')} disabled={analyzing !== null}>
+            <Button onClick={() => runAnalysis('goal')} disabled={analyzing !== null} className="w-full sm:w-auto">
               {analyzing === 'goal' ? 'Analyzing...' : 'Goal Progress'}
             </Button>
           </div>

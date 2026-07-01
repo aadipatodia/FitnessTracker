@@ -42,7 +42,7 @@ export function DashboardPage() {
       <GoalSection stats={stats} />
 
       {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           title="Weight"
           value={stats?.current_weight ? `${stats.current_weight} kg` : '—'}
@@ -157,7 +157,7 @@ export function DashboardPage() {
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold">Exercise Progress</h2>
           <Link
             to="/workout-graph"

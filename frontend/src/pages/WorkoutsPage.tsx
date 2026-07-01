@@ -157,12 +157,12 @@ export function WorkoutsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Workouts</h1>
           <p className="text-muted-foreground">Log exercises, sets, reps, and weights</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => setShowForm(!showForm)} className="w-full sm:w-auto">
           <Plus className="h-4 w-4" />
           Log Workout
         </Button>
@@ -203,18 +203,44 @@ export function WorkoutsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="grid grid-cols-5 gap-2 text-xs text-muted-foreground px-1">
-                      <span>Set</span><span>Weight (kg)</span><span>Reps</span><span>Rest (s)</span><span></span>
+                    {/* Mobile: stacked set cards */}
+                    <div className="space-y-3 md:hidden">
+                      {ex.sets.map((set, setIdx) => (
+                        <div key={setIdx} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                          <p className="text-sm font-medium">Set {set.set_number}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <span className="text-xs text-muted-foreground">Weight (kg)</span>
+                              <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-xs text-muted-foreground">Reps</span>
+                              <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
+                            </div>
+                            <div className="space-y-1 col-span-2">
+                              <span className="text-xs text-muted-foreground">Rest (seconds)</span>
+                              <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    {ex.sets.map((set, setIdx) => (
-                      <div key={setIdx} className="grid grid-cols-5 gap-2">
-                        <Input value={set.set_number} disabled className="text-center" />
-                        <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
-                        <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
-                        <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
-                        <span />
+
+                    {/* Tablet/desktop: table grid */}
+                    <div className="hidden md:block space-y-2">
+                      <div className="grid grid-cols-5 gap-2 text-xs text-muted-foreground px-1">
+                        <span>Set</span><span>Weight (kg)</span><span>Reps</span><span>Rest (s)</span><span></span>
                       </div>
-                    ))}
+                      {ex.sets.map((set, setIdx) => (
+                        <div key={setIdx} className="grid grid-cols-5 gap-2">
+                          <Input value={set.set_number} disabled className="text-center" />
+                          <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
+                          <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
+                          <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
+                          <span />
+                        </div>
+                      ))}
+                    </div>
                     <Button type="button" variant="ghost" size="sm" onClick={() => addSet(exIdx)}>+ Add set</Button>
                   </div>
                 </div>
@@ -229,9 +255,9 @@ export function WorkoutsPage() {
                 <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="How did it feel?" />
               </div>
 
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-                <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save workout'}</Button>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="submit" disabled={saving} className="w-full sm:w-auto">{saving ? 'Saving...' : 'Save workout'}</Button>
               </div>
             </form>
           </CardContent>
@@ -253,9 +279,9 @@ export function WorkoutsPage() {
           {workouts.map((w) => (
             <Card key={w.id}>
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base">{w.name || 'Workout'}</CardTitle>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm text-muted-foreground">{formatDate(w.workout_date)}</span>
                     {(w.calories_burned ?? 0) > 0 && (
                       <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
@@ -296,12 +322,12 @@ export function WorkoutsPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-4 border-t border-border">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-border">
         <div>
           <h2 className="text-xl font-semibold">Cardio</h2>
           <p className="text-sm text-muted-foreground">Log running, cycling, swimming, and other cardio</p>
         </div>
-        <Button variant="outline" onClick={() => setShowCardioForm(!showCardioForm)}>
+        <Button variant="outline" onClick={() => setShowCardioForm(!showCardioForm)} className="w-full sm:w-auto">
           <HeartPulse className="h-4 w-4" />
           Log Cardio
         </Button>
@@ -340,9 +366,9 @@ export function WorkoutsPage() {
                   />
                 </div>
               </div>
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => setShowCardioForm(false)}>Cancel</Button>
-                <Button type="submit" disabled={savingCardio}>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button type="button" variant="outline" onClick={() => setShowCardioForm(false)} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="submit" disabled={savingCardio} className="w-full sm:w-auto">
                   {savingCardio ? 'Saving...' : 'Save cardio'}
                 </Button>
               </div>
