@@ -20,6 +20,8 @@ class UserResponse(BaseModel):
     id: int
     email: str
     full_name: str
+    gender: Optional[str] = None
+    age: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -56,6 +58,8 @@ class GoalCreate(BaseModel):
     goal_type: str
     title: str
     description: Optional[str] = None
+    gender: Optional[str] = None
+    age: Optional[int] = Field(None, ge=0, le=100)
     target_body_fat: Optional[float] = None
     current_body_fat: Optional[float] = None
     target_weight: Optional[float] = None
@@ -70,6 +74,8 @@ class GoalCreate(BaseModel):
 class GoalGuidanceRequest(BaseModel):
     goal_type: str
     end_goal: Optional[str] = None
+    gender: Optional[str] = None
+    age: Optional[int] = Field(None, ge=0, le=100)
 
 
 class GoalGuidanceResponse(BaseModel):
@@ -80,6 +86,8 @@ class GoalGuidanceResponse(BaseModel):
 class GoalEvaluateRequest(BaseModel):
     goal_type: str
     end_goal: Optional[str] = None
+    gender: Optional[str] = None
+    age: Optional[int] = Field(None, ge=0, le=100)
     target_date: Optional[date] = None
     current_body_fat: Optional[float] = None
     target_body_fat: Optional[float] = None

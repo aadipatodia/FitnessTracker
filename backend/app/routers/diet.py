@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
+from app.activity_log import log_action
 from app.auth import get_current_user
 from app.database import get_db
 from app.models.user import User
@@ -45,7 +46,15 @@ async def log_diet(
 
     db.commit()
     db.refresh(diet_log)
-    return _to_response(diet_log)
+    response = _to_response(diet_log)
+    log_action(
+        current_user,
+        f"logged {data.meal_type} for {data.log_date}: \"{data.food_input}\"",
+        f"{response.total_calories:.0f} kcal "
+        f"({response.total_protein:.0f}P/{response.total_carbs:.0f}C/{response.total_fat:.0f}F), "
+        f"{len(response.entries)} item(s)",
+    )
+    return response
 
 
 @router.get("/logs", response_model=list[DietLogResponse])
@@ -62,7 +71,14 @@ def list_diet_logs(
         .limit(limit)
         .all()
     )
-    return [_to_response(log) for log in logs]
+    response = [_to_response(log) for log in logs]
+    total_kcal = sum(r.total_calories for r in response)
+    log_action(
+        current_user,
+        f"viewed diet history (last {limit} meals)",
+        f"{len(response)} meals, {total_kcal:.0f} kcal total",
+    )
+    return response
 
 
 @router.delete("/logs/{log_id}", status_code=204)
@@ -78,6 +94,11 @@ def delete_diet_log(
     )
     if not log:
         raise HTTPException(status_code=404, detail="Diet log not found")
+    log_action(
+        current_user,
+        f"deleted meal from {log.log_date} ({log.meal_type})",
+        "meal removed",
+    )
     db.delete(log)
     db.commit()
 

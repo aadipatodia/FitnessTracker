@@ -2,12 +2,19 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Target, Flame, Dumbbell, TrendingDown, Lightbulb } from 'lucide-react'
 import { api, type GoalFeasibility, type GoalGuidance } from '@/lib/api'
+import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Input, Label, Textarea } from '@/components/ui/input'
+import { Input, Label, Textarea, Select } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { GoalPlanAssessment } from '@/components/GoalPlanAssessment'
 
 type GoalType = 'reduce_body_fat' | 'lose_fat_gain_muscle' | 'increase_strength' | 'general_fitness'
+type Gender = 'male' | 'female'
+
+const genderOptions: { value: Gender; label: string }[] = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+]
 
 const goalTypes = [
   { value: 'reduce_body_fat' as GoalType, label: 'Reduce Body Fat', icon: TrendingDown, desc: 'Cut fat to a target percentage' },
@@ -93,8 +100,11 @@ function buildPlanInputKey(fields: Record<string, string>) {
 
 export function OnboardingPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [step, setStep] = useState(0)
   const [goalType, setGoalType] = useState<GoalType>('reduce_body_fat')
+  const [gender, setGender] = useState<Gender | ''>('')
+  const [age, setAge] = useState('')
   const [endGoal, setEndGoal] = useState('')
   const [title, setTitle] = useState('')
   const [currentWeight, setCurrentWeight] = useState('')
@@ -116,9 +126,21 @@ export function OnboardingPage() {
   const [planAnalyzed, setPlanAnalyzed] = useState(false)
   const lastAnalyzedInput = useRef('')
 
+  useEffect(() => {
+    if (user?.gender && !gender) setGender(user.gender as Gender)
+    if (user?.age && !age) setAge(String(user.age))
+  }, [user, gender, age])
+
+  const parsedAge = age !== '' && !Number.isNaN(Number(age)) ? parseInt(age, 10) : undefined
+  const profileComplete = Boolean(
+    gender && parsedAge !== undefined && parsedAge >= 0 && parsedAge <= 100
+  )
+
   const parsedGoalDate = parseDateFromText(endGoal)
   const planInputKey = buildPlanInputKey({
     goalType,
+    gender,
+    age,
     endGoal,
     targetDate: targetDate || parsedGoalDate || '',
     currentWeight,
@@ -130,20 +152,24 @@ export function OnboardingPage() {
     targetLift,
   })
 
-  const guidanceFetchedForStep = useRef(false)
+  const guidanceFetchedForStep = useRef('')
 
   useEffect(() => {
-    if (step !== 1) {
-      guidanceFetchedForStep.current = false
-      return
-    }
-    if (guidanceFetchedForStep.current) return
-    guidanceFetchedForStep.current = true
+    if (step !== 2 || !endGoal.trim() || !gender || parsedAge === undefined) return
+
+    const guidanceKey = `${goalType}|${endGoal}|${gender}|${parsedAge}`
+    if (guidanceFetchedForStep.current === guidanceKey) return
+    guidanceFetchedForStep.current = guidanceKey
 
     let cancelled = false
     setGuidanceLoading(true)
     api
-      .getGoalGuidance({ goal_type: goalType, end_goal: undefined })
+      .getGoalGuidance({
+        goal_type: goalType,
+        end_goal: endGoal.trim() || undefined,
+        gender,
+        age: parsedAge,
+      })
       .then((g) => {
         if (!cancelled) setGuidance(g)
       })
@@ -155,7 +181,7 @@ export function OnboardingPage() {
     return () => {
       cancelled = true
     }
-  }, [step, goalType])
+  }, [step, goalType, endGoal, gender, parsedAge])
 
   useEffect(() => {
     if (step !== 2) {
@@ -182,6 +208,7 @@ export function OnboardingPage() {
     hasAssessment && (feasibility!.intensity === 'extreme' || !feasibility!.realistic)
 
   const analyzePlan = async (): Promise<GoalFeasibility | null> => {
+    if (!profileComplete) return null
     setPlanLoading(true)
     try {
       const effectiveDate = effectiveTargetDate
@@ -189,6 +216,8 @@ export function OnboardingPage() {
       const result = await api.evaluateGoal({
         goal_type: goalType,
         end_goal: endGoal.trim() || undefined,
+        gender,
+        age: parsedAge,
         target_date: effectiveDate,
         current_weight: currentWeight ? parseFloat(currentWeight) : undefined,
         target_weight: targetWeight ? parseFloat(targetWeight) : undefined,
@@ -216,7 +245,7 @@ export function OnboardingPage() {
   }
 
   const handleSubmit = async () => {
-    if (planLoading || loading) return
+    if (planLoading || loading || !profileComplete) return
 
     let assessment = feasibility
     if (!planAnalyzed || planInputKey !== lastAnalyzedInput.current) {
@@ -245,6 +274,8 @@ export function OnboardingPage() {
         goal_type: goalType,
         title: title || endGoal.slice(0, 60) || goalTypes.find(g => g.value === goalType)?.label || 'My Goal',
         description: description || undefined,
+        gender,
+        age: parsedAge,
         current_weight: currentWeight ? parseFloat(currentWeight) : undefined,
         target_weight: targetWeight ? parseFloat(targetWeight) : undefined,
         current_body_fat: currentBodyFat ? parseFloat(currentBodyFat) : undefined,
@@ -334,24 +365,6 @@ export function OnboardingPage() {
               <CardDescription>What does success look like for you?</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                  <Lightbulb className="h-4 w-4" />
-                  {guidanceLoading ? 'Personalizing your plan…' : guidance?.title ?? 'Coaching guidance'}
-                </div>
-                {guidanceLoading ? (
-                  <div className="mt-3 flex justify-center py-2">
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  </div>
-                ) : (
-                  <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                    {(guidance?.tips ?? []).map((tip) => (
-                      <li key={tip}>• {tip}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
               <div className="space-y-2">
                 <Label>Your end goal</Label>
                 <Textarea
@@ -391,10 +404,54 @@ export function OnboardingPage() {
         {step === 2 && (
           <Card>
             <CardHeader>
-              <CardTitle>Targets & timeline</CardTitle>
-              <CardDescription>We'll personalize your coaching based on these numbers</CardDescription>
+              <CardTitle>About you & your targets</CardTitle>
+              <CardDescription>Gender and age help us estimate calories and personalize your plan</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Gender</Label>
+                  <Select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value as Gender | '')}
+                  >
+                    <option value="">Select gender</option>
+                    {genderOptions.map(({ value, label }) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Age</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="25"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <Lightbulb className="h-4 w-4" />
+                  {guidanceLoading ? 'Personalizing your plan…' : guidance?.title ?? 'Coaching guidance'}
+                </div>
+                {guidanceLoading ? (
+                  <div className="mt-3 flex justify-center py-2">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                ) : (
+                  <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                    {(guidance?.tips ?? []).map((tip) => (
+                      <li key={tip}>• {tip}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               {showWeight && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -496,9 +553,9 @@ export function OnboardingPage() {
                 <Button
                   className="flex-1"
                   onClick={handleSubmit}
-                  disabled={loading || planLoading || (planAnalyzed && needsExtremeAck && !acknowledgedExtreme)}
+                  disabled={!profileComplete || loading || planLoading || (planAnalyzed && needsExtremeAck && !acknowledgedExtreme)}
                 >
-                  {submitLabel}
+                  {!profileComplete ? 'Enter gender and age to continue' : submitLabel}
                 </Button>
               </div>
             </CardContent>

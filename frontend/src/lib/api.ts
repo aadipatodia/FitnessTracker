@@ -231,6 +231,8 @@ export interface User {
   id: number
   email: string
   full_name: string
+  gender?: string
+  age?: number
   created_at: string
 }
 
@@ -267,6 +269,8 @@ export interface GoalCreate {
   goal_type: string
   title: string
   description?: string
+  gender?: string
+  age?: number
   target_body_fat?: number
   current_body_fat?: number
   target_weight?: number
@@ -281,6 +285,8 @@ export interface GoalCreate {
 export interface GoalGuidanceRequest {
   goal_type: string
   end_goal?: string
+  gender?: string
+  age?: number
 }
 
 export interface GoalGuidance {
@@ -291,6 +297,8 @@ export interface GoalGuidance {
 export interface GoalEvaluateRequest {
   goal_type: string
   end_goal?: string
+  gender?: string
+  age?: number
   target_date?: string
   current_body_fat?: number
   target_body_fat?: number

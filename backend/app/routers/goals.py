@@ -18,21 +18,45 @@ from app.services.gemini import evaluate_goal_plan, generate_goal_guidance
 router = APIRouter(prefix="/goals", tags=["goals"])
 
 
+def _apply_profile(user: User, gender: str | None, age: int | None) -> None:
+    if gender:
+        user.gender = gender
+    if age is not None:
+        user.age = age
+
+
+def _profile_fields(user: User, data: dict) -> dict:
+    return {
+        **data,
+        "gender": data.get("gender") or user.gender,
+        "age": data.get("age") if data.get("age") is not None else user.age,
+    }
+
+
 @router.post("/guidance", response_model=GoalGuidanceResponse)
 async def get_goal_guidance(
     data: GoalGuidanceRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await generate_goal_guidance(data.goal_type, data.end_goal)
+    payload = _profile_fields(current_user, data.model_dump(exclude_none=True))
+    result = await generate_goal_guidance(
+        payload["goal_type"],
+        payload.get("end_goal"),
+        gender=payload.get("gender"),
+        age=payload.get("age"),
+    )
     return GoalGuidanceResponse(title=result["title"], tips=result["tips"])
 
 
 @router.post("/evaluate", response_model=GoalFeasibilityResponse)
 async def evaluate_goal_feasibility(
     data: GoalEvaluateRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await evaluate_goal_plan(data.model_dump(exclude_none=True))
+    payload = _profile_fields(current_user, data.model_dump(exclude_none=True))
+    result = await evaluate_goal_plan(payload)
     return GoalFeasibilityResponse(**result)
 
 
@@ -42,6 +66,8 @@ def create_goal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    _apply_profile(current_user, data.gender, data.age)
+
     db.query(FitnessGoal).filter(
         FitnessGoal.user_id == current_user.id, FitnessGoal.is_active == True
     ).update({"is_active": False})

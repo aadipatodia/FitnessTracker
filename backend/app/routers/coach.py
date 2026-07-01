@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.activity_log import log_action, summarize_titles
 from app.auth import get_current_user
 from app.database import get_db
 from app.models.user import User
@@ -69,7 +70,15 @@ def dashboard(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return get_dashboard_stats(db, current_user.id)
+    stats = get_dashboard_stats(db, current_user.id)
+    log_action(
+        current_user,
+        "viewed dashboard",
+        f"{stats.calories_today:.0f} kcal eaten today, "
+        f"{stats.workout_streak}-day workout streak, "
+        f"recovery score {stats.recovery_score:.0f}%",
+    )
+    return stats
 
 
 @router.get("/charts", response_model=DashboardCharts)
@@ -78,7 +87,9 @@ def charts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return get_dashboard_charts(db, current_user.id, days)
+    data = get_dashboard_charts(db, current_user.id, days)
+    log_action(current_user, f"viewed progress charts ({days} days)", "charts loaded")
+    return data
 
 
 @router.post("/analyze", response_model=list[CoachingInsightResponse])
@@ -123,7 +134,7 @@ async def analyze(
     for s in saved:
         db.refresh(s)
 
-    return [
+    response = [
         CoachingInsightResponse(
             id=s.id,
             insight_type=s.insight_type.value,
@@ -134,6 +145,22 @@ async def analyze(
         )
         for s in saved
     ]
+
+    type_label = {"daily": "daily", "weekly": "weekly", "goal": "goal"}.get(
+        request.analysis_type, request.analysis_type
+    )
+    extras = []
+    if analysis.get("calorie_recommendation"):
+        extras.append(f"{analysis['calorie_recommendation']} kcal recommended")
+    if analysis.get("protein_recommendation"):
+        extras.append(f"{analysis['protein_recommendation']}g protein recommended")
+    extra_text = f", {', '.join(extras)}" if extras else ""
+    log_action(
+        current_user,
+        f"ran {type_label} AI coach analysis for {analysis_date}",
+        f"generated {summarize_titles(response)}{extra_text}",
+    )
+    return response
 
 
 @router.get("/insights", response_model=list[CoachingInsightResponse])
@@ -154,7 +181,7 @@ def list_insights(
     if analysis_date or analysis_type:
         insights = [i for i in insights if _insight_matches(i, analysis_date, analysis_type)]
 
-    return [
+    response = [
         CoachingInsightResponse(
             id=i.id,
             insight_type=i.insight_type.value,
@@ -165,3 +192,19 @@ def list_insights(
         )
         for i in insights
     ]
+
+    if analysis_type and analysis_date:
+        type_label = {"daily": "daily", "weekly": "weekly", "goal": "goal"}.get(
+            analysis_type, analysis_type
+        )
+        action = f"viewed {type_label} coach insights for {analysis_date}"
+    elif analysis_type:
+        type_label = {"daily": "daily", "weekly": "weekly", "goal": "goal"}.get(
+            analysis_type, analysis_type
+        )
+        action = f"viewed {type_label} coach insights"
+    else:
+        action = "viewed coach insights"
+
+    log_action(current_user, action, summarize_titles(response))
+    return response

@@ -324,17 +324,30 @@ The first insight MUST be a concrete action plan with numbers from calorie_balan
     )
 
 
-async def generate_goal_guidance(goal_type: str, end_goal: str | None = None) -> dict:
+async def generate_goal_guidance(
+    goal_type: str,
+    end_goal: str | None = None,
+    *,
+    gender: str | None = None,
+    age: int | None = None,
+) -> dict:
     """Personalized coaching tips for goal onboarding."""
     fallback = {
         "title": "Your coaching plan",
         "tips": ["We'll personalize guidance once your goal is saved."],
     }
 
+    profile = []
+    if gender:
+        profile.append(f"Gender: {gender}")
+    if age is not None:
+        profile.append(f"Age: {age}")
+
     prompt = f"""You are an expert fitness coach helping a user set up their goal.
 
 Goal category: {goal_type}
 User's end goal: {end_goal or "Not specified yet"}
+{"User profile: " + ", ".join(profile) if profile else "User profile: not provided yet"}
 
 Return ONLY valid JSON (no markdown):
 {{
@@ -342,11 +355,11 @@ Return ONLY valid JSON (no markdown):
   "tips": ["actionable tip 1", "actionable tip 2", "actionable tip 3"]
 }}
 
-Tailor tips to their stated end goal and category. Be specific and practical. Keep each tip under 120 characters."""
+Tailor tips to their stated end goal, category, age, and gender when provided. Be specific and practical. Keep each tip under 120 characters."""
 
     return _generate_json(
         "goal_guidance",
-        {"goal_type": goal_type, "end_goal": end_goal},
+        {"goal_type": goal_type, "end_goal": end_goal, "gender": gender, "age": age},
         prompt,
         fallback,
     )
@@ -450,6 +463,7 @@ If the deadline is unrealistic, set realistic=false and intensity="extreme". Exp
 If no target_date, set realistic=true, intensity="none", and leave timeline fields empty strings.
 
 NUTRITION TARGET RULES (critical):
+- Use gender and age (when provided) to estimate TDEE and realistic calorie/protein targets.
 - If end_goal states explicit daily calorie or protein targets, use those values — do NOT recalculate from TDEE or apply an extra deficit.
 - If they give a range (e.g. 2000-2200 calories), use the midpoint.
 - If they say calories are "after deficit" or "don't cut calories", their stated intake IS the final daily target — never reduce it further.

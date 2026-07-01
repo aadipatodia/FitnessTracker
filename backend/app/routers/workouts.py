@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
+from app.activity_log import log_action
 from app.auth import get_current_user
 from app.database import get_db
 from app.models.user import User
@@ -56,7 +57,16 @@ def create_workout(
         .first()
     )
     body_weight = get_user_body_weight_kg(db, current_user.id)
-    return _to_response(workout, body_weight)
+    response = _to_response(workout, body_weight)
+    exercise_names = ", ".join(e.exercise_name for e in workout.exercises[:3])
+    extra = f" (+{len(workout.exercises) - 3} more)" if len(workout.exercises) > 3 else ""
+    log_action(
+        current_user,
+        f"logged workout \"{data.name}\" for {data.workout_date}",
+        f"{len(workout.exercises)} exercises ({exercise_names}{extra}), "
+        f"{response.calories_burned:.0f} kcal burned",
+    )
+    return response
 
 
 @router.get("", response_model=list[WorkoutResponse])
@@ -74,7 +84,13 @@ def list_workouts(
         .all()
     )
     body_weight = get_user_body_weight_kg(db, current_user.id)
-    return [_to_response(w, body_weight) for w in workouts]
+    response = [_to_response(w, body_weight) for w in workouts]
+    log_action(
+        current_user,
+        f"viewed workout history (last {limit})",
+        f"{len(response)} workouts returned",
+    )
+    return response
 
 
 @router.get("/{workout_id}", response_model=WorkoutResponse)

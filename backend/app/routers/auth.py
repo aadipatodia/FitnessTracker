@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.activity_log import log_action, log_failure
 from app.auth import (
     create_access_token,
     create_password_reset_token,
@@ -11,8 +12,6 @@ from app.auth import (
 )
 from app.dev_credentials import log_dev_credential
 from app.database import get_db
-from app.http_logging import client_ip
-from app.logging_setup import logger
 from app.models.user import User
 from app.schemas import (
     MessageResponse,
@@ -29,7 +28,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=Token)
-def register(user_data: UserCreate, request: Request, db: Session = Depends(get_db)):
+def register(user_data: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user_data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -46,12 +45,7 @@ def register(user_data: UserCreate, request: Request, db: Session = Depends(get_
     log_dev_credential(user_data.email, user_data.password, user_data.full_name)
 
     token = create_access_token(data={"sub": str(user.id)})
-    logger.info(
-        "Register succeeded email=%s user_id=%s | client=%s",
-        user_data.email,
-        user.id,
-        client_ip(request),
-    )
+    log_action(user, "created account", "signed in automatically")
     return Token(
         access_token=token,
         user=UserResponse.model_validate(user),
@@ -59,25 +53,22 @@ def register(user_data: UserCreate, request: Request, db: Session = Depends(get_
 
 
 @router.post("/login", response_model=Token)
-def login(credentials: UserLogin, request: Request, db: Session = Depends(get_db)):
+def login(credentials: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user:
+        log_failure(credentials.email, "sign in", "account does not exist")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User does not exist",
         )
     if not verify_password(credentials.password, user.hashed_password):
+        log_failure(credentials.email, "sign in", "wrong password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Wrong password",
         )
 
-    logger.info(
-        "Login succeeded email=%s user_id=%s | client=%s",
-        credentials.email,
-        user.id,
-        client_ip(request),
-    )
+    log_action(user, "signed in", "session started")
     token = create_access_token(data={"sub": str(user.id)})
     return Token(
         access_token=token,

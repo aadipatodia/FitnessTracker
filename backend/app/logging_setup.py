@@ -37,6 +37,7 @@ def configure_logger(name: str, log_filename: str) -> logging.Logger:
 
 def setup_app_logging() -> None:
     configure_logger("fitai", "app.log")
+    logging.getLogger("uvicorn.access").disabled = True
 
 
 def get_logger(name: str = "fitai") -> logging.Logger:
