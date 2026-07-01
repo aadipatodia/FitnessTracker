@@ -11,6 +11,7 @@ from app.auth import (
 )
 from app.dev_credentials import log_dev_credential
 from app.database import get_db
+from app.logging_setup import logger
 from app.models.user import User
 from app.schemas import (
     MessageResponse,
@@ -54,16 +55,23 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
 def login(credentials: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user:
+        logger.warning("Login failed: no account for email=%s", credentials.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User does not exist",
         )
     if not verify_password(credentials.password, user.hashed_password):
+        logger.warning(
+            "Login failed: wrong password email=%s user_id=%s",
+            credentials.email,
+            user.id,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Wrong password",
         )
 
+    logger.info("Login succeeded email=%s user_id=%s", credentials.email, user.id)
     token = create_access_token(data={"sub": str(user.id)})
     return Token(
         access_token=token,

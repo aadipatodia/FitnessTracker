@@ -1,18 +1,22 @@
 from contextlib import asynccontextmanager
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import engine, Base
+from app.http_logging import http_exception_handler, validation_exception_handler
+from app.logging_setup import setup_app_logging
 from app.services.gemini import setup_gemini_logging
 from app.routers import auth, goals, workouts, diet, body, recovery, coach, activities, checkpoints
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_app_logging()
     setup_gemini_logging()
     Base.metadata.create_all(bind=engine)
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
@@ -25,6 +29,9 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
 app.add_middleware(

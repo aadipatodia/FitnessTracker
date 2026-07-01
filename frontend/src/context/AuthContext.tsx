@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { api, User } from '@/lib/api'
 
 interface AuthContextType {
@@ -30,13 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const res = await api.login({ email, password })
     api.setToken(res.access_token)
-    setUser(res.user)
+    flushSync(() => setUser(res.user))
   }
 
   const register = async (email: string, password: string, fullName: string) => {
     const res = await api.register({ email, password, full_name: fullName })
     api.setToken(res.access_token)
-    setUser(res.user)
+    flushSync(() => setUser(res.user))
   }
 
   const logout = () => {
