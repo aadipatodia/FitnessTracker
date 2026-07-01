@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.database import engine, Base
 from app.services.gemini import setup_gemini_logging
-from app.routers import auth, goals, workouts, diet, body, recovery, coach, activities
+from app.routers import auth, goals, workouts, diet, body, recovery, coach, activities, checkpoints
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ app.include_router(body.router, prefix="/api")
 app.include_router(recovery.router, prefix="/api")
 app.include_router(activities.router, prefix="/api")
 app.include_router(coach.router, prefix="/api")
+app.include_router(checkpoints.router, prefix="/api")
 
 if os.path.exists(settings.UPLOAD_DIR):
     app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")

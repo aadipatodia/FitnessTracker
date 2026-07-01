@@ -7,6 +7,7 @@ from app.models.recovery import RecoveryLog
 from app.models.food import FoodItem
 from app.models.coaching import CoachingInsight
 from app.models.activity import ActivityLog
+from app.models.checkpoint import Checkpoint, CheckpointCompletion
 
 __all__ = [
     "User",
@@ -21,4 +22,6 @@ __all__ = [
     "FoodItem",
     "CoachingInsight",
     "ActivityLog",
+    "Checkpoint",
+    "CheckpointCompletion",
 ]

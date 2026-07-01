@@ -32,6 +32,25 @@ class Token(BaseModel):
     user: UserResponse
 
 
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    email: EmailStr
+    reset_token: str
+    new_password: str = Field(min_length=6)
+
+
+class PasswordResetRequestResponse(BaseModel):
+    message: str
+    reset_token: Optional[str] = None
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
 # Goals
 class GoalCreate(BaseModel):
     goal_type: str
@@ -267,6 +286,47 @@ class RecoveryLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Checkpoints
+class CheckpointCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+
+
+class CheckpointUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    sort_order: Optional[int] = None
+
+
+class CheckpointResponse(BaseModel):
+    id: int
+    title: str
+    sort_order: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DailyCheckpointItem(BaseModel):
+    id: int
+    title: str
+    sort_order: int
+    completed: bool
+    completed_at: Optional[datetime] = None
+
+
+class DailyCheckpointsResponse(BaseModel):
+    log_date: date
+    items: list[DailyCheckpointItem]
+    total: int
+    completed_count: int
+
+
+class CheckpointToggleRequest(BaseModel):
+    checkpoint_id: int
+    log_date: date
+    completed: bool
 
 
 # Coaching

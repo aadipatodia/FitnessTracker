@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { WorkoutsPage } from '@/pages/WorkoutsPage'
@@ -10,6 +11,7 @@ import { WorkoutGraphPage } from '@/pages/WorkoutGraphPage'
 import { DietPage } from '@/pages/DietPage'
 import { BodyPage } from '@/pages/BodyPage'
 import { RecoveryPage } from '@/pages/RecoveryPage'
+import { CheckpointsPage } from '@/pages/CheckpointsPage'
 import { CoachPage } from '@/pages/CoachPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -39,6 +41,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+          <Route path="/reset-password" element={<PublicRoute><ResetPasswordPage /></PublicRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
           <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/workouts" element={<ProtectedRoute><WorkoutsPage /></ProtectedRoute>} />
@@ -46,6 +49,7 @@ export default function App() {
           <Route path="/diet" element={<ProtectedRoute><DietPage /></ProtectedRoute>} />
           <Route path="/body" element={<ProtectedRoute><BodyPage /></ProtectedRoute>} />
           <Route path="/recovery" element={<ProtectedRoute><RecoveryPage /></ProtectedRoute>} />
+          <Route path="/checkpoints" element={<ProtectedRoute><CheckpointsPage /></ProtectedRoute>} />
           <Route path="/coach" element={<ProtectedRoute><CoachPage /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>

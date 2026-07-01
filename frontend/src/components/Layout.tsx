@@ -11,6 +11,7 @@ import {
   X,
   LineChart,
   Target,
+  ListChecks,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
@@ -23,6 +24,7 @@ const navItems = [
   { path: '/diet', label: 'Diet', icon: UtensilsCrossed },
   { path: '/body', label: 'Body', icon: Activity },
   { path: '/recovery', label: 'Recovery', icon: Moon },
+  { path: '/checkpoints', label: 'Checkpoints', icon: ListChecks },
   { path: '/coach', label: 'AI Coach', icon: Brain },
 ]
 

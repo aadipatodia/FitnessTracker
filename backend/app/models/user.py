@@ -23,3 +23,7 @@ class User(Base):
     recovery_logs: Mapped[list["RecoveryLog"]] = relationship("RecoveryLog", back_populates="user")
     activity_logs: Mapped[list["ActivityLog"]] = relationship("ActivityLog", back_populates="user")
     coaching_insights: Mapped[list["CoachingInsight"]] = relationship("CoachingInsight", back_populates="user")
+    checkpoints: Mapped[list["Checkpoint"]] = relationship("Checkpoint", back_populates="user")
+    checkpoint_completions: Mapped[list["CheckpointCompletion"]] = relationship(
+        "CheckpointCompletion", back_populates="user"
+    )

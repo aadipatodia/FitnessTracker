@@ -61,6 +61,20 @@ class ApiClient {
     return this.request<User>('/auth/me')
   }
 
+  requestPasswordReset(email: string) {
+    return this.request<PasswordResetRequestResponse>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  resetPassword(data: { email: string; reset_token: string; new_password: string }) {
+    return this.request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
   // Goals
   createGoal(data: GoalCreate) {
     return this.request<Goal>('/goals', { method: 'POST', body: JSON.stringify(data) })
@@ -174,6 +188,34 @@ class ApiClient {
     const query = search.toString()
     return this.request<CoachingInsight[]>(`/coach/insights${query ? `?${query}` : ''}`)
   }
+
+  // Checkpoints
+  getCheckpoints() {
+    return this.request<Checkpoint[]>('/checkpoints')
+  }
+
+  createCheckpoint(data: CheckpointCreate) {
+    return this.request<Checkpoint>('/checkpoints', { method: 'POST', body: JSON.stringify(data) })
+  }
+
+  updateCheckpoint(id: number, data: CheckpointUpdate) {
+    return this.request<Checkpoint>(`/checkpoints/${id}`, { method: 'PUT', body: JSON.stringify(data) })
+  }
+
+  deleteCheckpoint(id: number) {
+    return this.request<void>(`/checkpoints/${id}`, { method: 'DELETE' })
+  }
+
+  getDailyCheckpoints(logDate: string) {
+    return this.request<DailyCheckpoints>(`/checkpoints/daily?log_date=${logDate}`)
+  }
+
+  toggleCheckpoint(data: CheckpointToggle) {
+    return this.request<DailyCheckpointItem>('/checkpoints/daily/toggle', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
 }
 
 export const api = new ApiClient()
@@ -190,6 +232,11 @@ export interface AuthResponse {
   access_token: string
   token_type: string
   user: User
+}
+
+export interface PasswordResetRequestResponse {
+  message: string
+  reset_token?: string
 }
 
 export interface Goal {
@@ -428,4 +475,41 @@ export interface CoachingInsight {
   content: string
   metadata_json?: Record<string, unknown>
   created_at: string
+}
+
+export interface Checkpoint {
+  id: number
+  title: string
+  sort_order: number
+  created_at: string
+}
+
+export interface CheckpointCreate {
+  title: string
+}
+
+export interface CheckpointUpdate {
+  title?: string
+  sort_order?: number
+}
+
+export interface DailyCheckpointItem {
+  id: number
+  title: string
+  sort_order: number
+  completed: boolean
+  completed_at?: string
+}
+
+export interface DailyCheckpoints {
+  log_date: string
+  items: DailyCheckpointItem[]
+  total: number
+  completed_count: number
+}
+
+export interface CheckpointToggle {
+  checkpoint_id: number
+  log_date: string
+  completed: boolean
 }
