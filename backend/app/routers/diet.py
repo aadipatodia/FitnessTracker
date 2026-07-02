@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
@@ -40,6 +42,7 @@ async def log_diet(
             protein_g=result.protein_g,
             carbs_g=result.carbs_g,
             fat_g=result.fat_g,
+            fibre_g=result.fibre_g,
             source=result.source,
             food_item_id=result.food_item_id,
         ))
@@ -51,7 +54,7 @@ async def log_diet(
         current_user,
         f"logged {data.meal_type} for {data.log_date}: \"{data.food_input}\"",
         f"{response.total_calories:.0f} kcal "
-        f"({response.total_protein:.0f}P/{response.total_carbs:.0f}C/{response.total_fat:.0f}F), "
+        f"({response.total_protein:.0f}P/{response.total_carbs:.0f}C/{response.total_fat:.0f}F/{response.total_fibre:.0f}Fi), "
         f"{len(response.entries)} item(s)",
     )
     return response
@@ -59,23 +62,24 @@ async def log_diet(
 
 @router.get("/logs", response_model=list[DietLogResponse])
 def list_diet_logs(
+    log_date: date | None = Query(None),
     limit: int = Query(30, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    logs = (
+    query = (
         db.query(DietLog)
         .options(joinedload(DietLog.entries))
         .filter(DietLog.user_id == current_user.id)
-        .order_by(DietLog.log_date.desc())
-        .limit(limit)
-        .all()
     )
+    if log_date:
+        query = query.filter(DietLog.log_date == log_date)
+    logs = query.order_by(DietLog.log_date.desc()).limit(limit).all()
     response = [_to_response(log) for log in logs]
     total_kcal = sum(r.total_calories for r in response)
     log_action(
         current_user,
-        f"viewed diet history (last {limit} meals)",
+        f"viewed diet history ({log_date or f'last {limit}'})",
         f"{len(response)} meals, {total_kcal:.0f} kcal total",
     )
     return response
@@ -115,6 +119,7 @@ def _to_response(log: DietLog) -> DietLogResponse:
             protein_g=e.protein_g,
             carbs_g=e.carbs_g,
             fat_g=e.fat_g,
+            fibre_g=e.fibre_g,
             source=e.source,
         )
         for e in log.entries
@@ -129,4 +134,5 @@ def _to_response(log: DietLog) -> DietLogResponse:
         total_protein=sum(e.protein_g for e in entries),
         total_carbs=sum(e.carbs_g for e in entries),
         total_fat=sum(e.fat_g for e in entries),
+        total_fibre=sum(e.fibre_g for e in entries),
     )

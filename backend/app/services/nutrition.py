@@ -10,6 +10,7 @@ class NutritionResult:
     protein_g: float
     carbs_g: float
     fat_g: float
+    fibre_g: float
     source: str
     food_item_id: int | None = None
     raw_input: str = ""
@@ -29,6 +30,7 @@ def _meal_items_from_response(data: dict, food_input: str) -> list[dict]:
             "protein_g": data.get("protein_g", 0),
             "carbs_g": data.get("carbs_g", 0),
             "fat_g": data.get("fat_g", 0),
+            "fibre_g": data.get("fibre_g", 0),
         }]
 
     return [{
@@ -39,6 +41,7 @@ def _meal_items_from_response(data: dict, food_input: str) -> list[dict]:
         "protein_g": 0,
         "carbs_g": 0,
         "fat_g": 0,
+        "fibre_g": 0,
     }]
 
 
@@ -60,6 +63,7 @@ class NutritionService:
                 protein_g=float(item.get("protein_g", 0)),
                 carbs_g=float(item.get("carbs_g", 0)),
                 fat_g=float(item.get("fat_g", 0)),
+                fibre_g=float(item.get("fibre_g", 0)),
                 source="gemini",
                 raw_input=text,
             )

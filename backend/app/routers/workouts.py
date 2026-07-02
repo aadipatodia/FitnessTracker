@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
@@ -71,23 +73,24 @@ def create_workout(
 
 @router.get("", response_model=list[WorkoutResponse])
 def list_workouts(
+    workout_date: date | None = Query(None),
     limit: int = Query(20, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    workouts = (
+    query = (
         db.query(Workout)
         .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
         .filter(Workout.user_id == current_user.id)
-        .order_by(Workout.workout_date.desc())
-        .limit(limit)
-        .all()
     )
+    if workout_date:
+        query = query.filter(Workout.workout_date == workout_date)
+    workouts = query.order_by(Workout.workout_date.desc()).limit(limit).all()
     body_weight = get_user_body_weight_kg(db, current_user.id)
     response = [_to_response(w, body_weight) for w in workouts]
     log_action(
         current_user,
-        f"viewed workout history (last {limit})",
+        f"viewed workout history ({workout_date or f'last {limit}'})",
         f"{len(response)} workouts returned",
     )
     return response

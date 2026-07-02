@@ -69,6 +69,7 @@ def get_nutrition_for_date(db: Session, user_id: int, log_date: date) -> dict:
         "protein": sum(e.protein_g for e in entries),
         "carbs": sum(e.carbs_g for e in entries),
         "fat": sum(e.fat_g for e in entries),
+        "fibre": sum(e.fibre_g for e in entries),
     }
 
 

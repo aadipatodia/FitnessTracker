@@ -123,6 +123,7 @@ async def estimate_meal_nutrition(food_input: str) -> dict:
                 "protein_g": 0,
                 "carbs_g": 0,
                 "fat_g": 0,
+                "fibre_g": 0,
             }
         ]
     }
@@ -140,6 +141,7 @@ Rules:
 - Use typical Indian portions when relevant (roti, dal bowl, glass of doodh, paratha, etc.).
 - Return totals for each item as listed, not per 100g.
 - Use realistic values (e.g. 1 glass whole milk ≈ 150-170 kcal, ~8-10g protein).
+- Estimate dietary fibre (fibre_g) for each item — whole grains, roti, dal, vegetables, fruit, etc.
 
 Return ONLY valid JSON with no markdown:
 {{
@@ -151,7 +153,8 @@ Return ONLY valid JSON with no markdown:
       "calories": number,
       "protein_g": number,
       "carbs_g": number,
-      "fat_g": number
+      "fat_g": number,
+      "fibre_g": number
     }}
   ]
 }}"""

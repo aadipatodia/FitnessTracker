@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Sparkles, Trash2 } from 'lucide-react'
 import { api, DietLog } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
@@ -8,7 +8,12 @@ import { Input, Label, Select, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
 
+function formatMacros(p: number, c: number, f: number, fi: number) {
+  return `P:${Math.round(p)}g · C:${Math.round(c)}g · F:${Math.round(f)}g · Fi:${Math.round(fi)}g`
+}
+
 export function DietPage() {
+  const [viewDate, setViewDate] = useState(todayISO())
   const [logs, setLogs] = useState<DietLog[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -17,9 +22,21 @@ export function DietPage() {
   const [foodInput, setFoodInput] = useState('')
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
-  useEffect(() => {
-    api.getDietLogs().then(setLogs).catch(console.error).finally(() => setLoading(false))
+  const loadLogs = useCallback(async (date: string) => {
+    const data = await api.getDietLogs({ logDate: date })
+    setLogs(data)
   }, [])
+
+  useEffect(() => {
+    loadLogs(viewDate).catch(console.error).finally(() => setLoading(false))
+  }, [loadLogs, viewDate])
+
+  const handleViewDateChange = (date: string) => {
+    setViewDate(date)
+    setLogDate(date)
+    setLoading(true)
+    loadLogs(date).catch(console.error).finally(() => setLoading(false))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,7 +44,11 @@ export function DietPage() {
     setSaving(true)
     try {
       const log = await api.logDiet({ log_date: logDate, meal_type: mealType, food_input: foodInput })
-      setLogs([log, ...logs.filter(l => l.id !== log.id)])
+      if (log.log_date === viewDate) {
+        setLogs([log, ...logs.filter(l => l.id !== log.id)])
+      } else {
+        await loadLogs(viewDate)
+      }
       setFoodInput('')
     } catch (err) {
       console.error(err)
@@ -49,28 +70,46 @@ export function DietPage() {
     }
   }
 
-  const todayLogs = logs.filter(l => l.log_date === todayISO())
-  const todayTotals = todayLogs.reduce(
+  const dayTotals = logs.reduce(
     (acc, l) => ({
       calories: acc.calories + l.total_calories,
       protein: acc.protein + l.total_protein,
       carbs: acc.carbs + l.total_carbs,
       fat: acc.fat + l.total_fat,
+      fibre: acc.fibre + l.total_fibre,
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0 }
   )
 
   return (
     <div className="space-y-6">
       <PageHeader title="Diet Log" subtitle="Type what you ate — AI estimates the macros" />
 
-      {/* Today's summary */}
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+      <ScrollReveal animation="blur-up">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <Label>View date</Label>
+              <Input
+                type="date"
+                value={viewDate}
+                onChange={(e) => handleViewDateChange(e.target.value)}
+              />
+              <p className="text-meta">
+                Showing meals and macros for {formatDate(viewDate)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </ScrollReveal>
+
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
         {[
-          { label: 'Calories', value: Math.round(todayTotals.calories), unit: 'kcal' },
-          { label: 'Protein', value: Math.round(todayTotals.protein), unit: 'g' },
-          { label: 'Carbs', value: Math.round(todayTotals.carbs), unit: 'g' },
-          { label: 'Fat', value: Math.round(todayTotals.fat), unit: 'g' },
+          { label: 'Calories', value: Math.round(dayTotals.calories), unit: 'kcal' },
+          { label: 'Protein', value: Math.round(dayTotals.protein), unit: 'g' },
+          { label: 'Carbs', value: Math.round(dayTotals.carbs), unit: 'g' },
+          { label: 'Fat', value: Math.round(dayTotals.fat), unit: 'g' },
+          { label: 'Fibre', value: Math.round(dayTotals.fibre), unit: 'g' },
         ].map(({ label, value, unit }, i) => (
           <ScrollReveal key={label} delay={revealDelay(i, 80)} animation="scale">
             <div className="luxury-card rounded-xl p-4 text-center h-full">
@@ -117,7 +156,7 @@ export function DietPage() {
                 rows={3}
               />
               <p className="text-meta">
-                Gemini estimates calories and macros from your description.
+                Gemini estimates calories, macros, and fibre from your description.
               </p>
             </div>
             <Button type="submit" disabled={saving || !foodInput.trim()} className="w-full sm:w-auto">
@@ -132,6 +171,14 @@ export function DietPage() {
         <div className="flex justify-center py-12">
           <div className="luxury-spinner" />
         </div>
+      ) : logs.length === 0 ? (
+        <ScrollReveal>
+          <Card>
+            <CardContent className="py-12 text-center text-empty">
+              No meals logged for {formatDate(viewDate)}.
+            </CardContent>
+          </Card>
+        </ScrollReveal>
       ) : (
         <div className="space-y-4">
           {logs.map((log, i) => (
@@ -168,7 +215,9 @@ export function DietPage() {
                       </div>
                       <div className="text-left text-sm sm:text-right shrink-0">
                         <p className="font-semibold text-foreground">{Math.round(entry.calories)} kcal</p>
-                        <p className="text-meta">P:{Math.round(entry.protein_g)}g C:{Math.round(entry.carbs_g)}g F:{Math.round(entry.fat_g)}g</p>
+                        <p className="text-meta">
+                          {formatMacros(entry.protein_g, entry.carbs_g, entry.fat_g, entry.fibre_g ?? 0)}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -176,7 +225,7 @@ export function DietPage() {
                 <div className="mt-3 flex flex-col gap-1 border-t border-border pt-3 text-base sm:flex-row sm:justify-between">
                   <span className="text-label normal-case">Total</span>
                   <span className="font-semibold text-foreground">
-                    {Math.round(log.total_calories)} kcal · P:{Math.round(log.total_protein)}g · C:{Math.round(log.total_carbs)}g · F:{Math.round(log.total_fat)}g
+                    {Math.round(log.total_calories)} kcal · {formatMacros(log.total_protein, log.total_carbs, log.total_fat, log.total_fibre ?? 0)}
                   </span>
                 </div>
               </CardContent>

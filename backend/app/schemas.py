@@ -211,6 +211,7 @@ class DietEntryResponse(BaseModel):
     protein_g: float
     carbs_g: float
     fat_g: float
+    fibre_g: float = 0
     source: str
 
     class Config:
@@ -227,6 +228,7 @@ class DietLogResponse(BaseModel):
     total_protein: float = 0
     total_carbs: float = 0
     total_fat: float = 0
+    total_fibre: float = 0
 
     class Config:
         from_attributes = True

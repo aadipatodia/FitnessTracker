@@ -14,6 +14,7 @@ def ensure_schema() -> None:
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(20)"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER"))
+        conn.execute(text("ALTER TABLE diet_entries ADD COLUMN IF NOT EXISTS fibre_g FLOAT DEFAULT 0"))
 
 
 class Base(DeclarativeBase):

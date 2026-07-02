@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Plus, Trash2, HeartPulse } from 'lucide-react'
 import { api, Workout, SetCreate, ActivityLog } from '@/lib/api'
 import { PageHeader } from '@/components/PageHeader'
@@ -14,6 +14,7 @@ interface ExerciseForm {
 }
 
 export function WorkoutsPage() {
+  const [viewDate, setViewDate] = useState(todayISO())
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [cardioLogs, setCardioLogs] = useState<ActivityLog[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -35,15 +36,26 @@ export function WorkoutsPage() {
   const [cardioType, setCardioType] = useState('')
   const [cardioDuration, setCardioDuration] = useState('')
 
-  useEffect(() => {
-    Promise.all([
-      api.getWorkouts(),
-      api.getActivities({ category: 'cardio', limit: 30 }),
+  const loadDay = useCallback(async (date: string) => {
+    const [w, c] = await Promise.all([
+      api.getWorkouts({ workoutDate: date }),
+      api.getActivities({ category: 'cardio', logDate: date }),
     ])
-      .then(([w, c]) => { setWorkouts(w); setCardioLogs(c) })
-      .catch(console.error)
-      .finally(() => setLoading(false))
+    setWorkouts(w)
+    setCardioLogs(c)
   }, [])
+
+  useEffect(() => {
+    loadDay(viewDate).catch(console.error).finally(() => setLoading(false))
+  }, [loadDay, viewDate])
+
+  const handleViewDateChange = (date: string) => {
+    setViewDate(date)
+    setWorkoutDate(date)
+    setCardioDate(date)
+    setLoading(true)
+    loadDay(date).catch(console.error).finally(() => setLoading(false))
+  }
 
   const addExercise = () => {
     setExercises([...exercises, {
@@ -97,7 +109,11 @@ export function WorkoutsPage() {
           })),
         })),
       })
-      setWorkouts([workout, ...workouts])
+      if (workout.workout_date === viewDate) {
+        setWorkouts([workout, ...workouts])
+      } else {
+        await loadDay(viewDate)
+      }
       setShowForm(false)
       setExercises([{ exercise_name: '', sets: [{ set_number: 1, rest_seconds: 60 }] }])
       setWorkoutName('')
@@ -133,7 +149,11 @@ export function WorkoutsPage() {
         duration_minutes: parseInt(cardioDuration, 10),
         category: 'cardio',
       })
-      setCardioLogs([log, ...cardioLogs])
+      if (log.log_date === viewDate) {
+        setCardioLogs([log, ...cardioLogs])
+      } else {
+        await loadDay(viewDate)
+      }
       setShowCardioForm(false)
       setCardioType('')
       setCardioDuration('')
@@ -157,6 +177,10 @@ export function WorkoutsPage() {
     }
   }
 
+  const gymCalories = workouts.reduce((sum, w) => sum + (w.calories_burned ?? 0), 0)
+  const cardioCalories = cardioLogs.reduce((sum, c) => sum + (c.calories_burned ?? 0), 0)
+  const totalCalories = gymCalories + cardioCalories
+
   return (
     <div className="space-y-6">
       <ScrollReveal animation="fade-up">
@@ -167,6 +191,39 @@ export function WorkoutsPage() {
             Log Workout
           </Button>
         </div>
+      </ScrollReveal>
+
+      <ScrollReveal animation="blur-up">
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="space-y-2">
+              <Label>View date</Label>
+              <Input
+                type="date"
+                value={viewDate}
+                onChange={(e) => handleViewDateChange(e.target.value)}
+              />
+              <p className="text-meta">
+                Showing workouts and cardio for {formatDate(viewDate)}
+              </p>
+            </div>
+            {(workouts.length > 0 || cardioLogs.length > 0) && (
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                {[
+                  { label: 'Gym sessions', value: workouts.length },
+                  { label: 'Cardio sessions', value: cardioLogs.length },
+                  { label: 'Gym burn', value: `~${Math.round(gymCalories)} kcal` },
+                  { label: 'Total burn', value: `~${Math.round(totalCalories)} kcal` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="luxury-card rounded-xl p-4 text-center">
+                    <p className="text-label">{label}</p>
+                    <p className="text-xl font-bold font-display text-foreground">{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </ScrollReveal>
 
       {showForm && (
@@ -205,7 +262,6 @@ export function WorkoutsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    {/* Mobile: stacked set cards */}
                     <div className="space-y-3 md:hidden">
                       {ex.sets.map((set, setIdx) => (
                         <div key={setIdx} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
@@ -228,7 +284,6 @@ export function WorkoutsPage() {
                       ))}
                     </div>
 
-                    {/* Tablet/desktop: table grid */}
                     <div className="hidden md:block space-y-2">
                       <div className="grid grid-cols-5 gap-2 text-label text-[0.75rem] normal-case px-1">
                         <span>Set</span><span>Weight (kg)</span><span>Reps</span><span>Rest (s)</span><span></span>
@@ -275,7 +330,7 @@ export function WorkoutsPage() {
         <ScrollReveal>
           <Card>
             <CardContent className="py-12 text-center text-empty">
-              No workouts logged yet. Start tracking your training!
+              No gym workouts logged for {formatDate(viewDate)}.
             </CardContent>
           </Card>
         </ScrollReveal>
@@ -388,7 +443,15 @@ export function WorkoutsPage() {
         </ScrollReveal>
       )}
 
-      {cardioLogs.length > 0 && (
+      {loading ? null : cardioLogs.length === 0 ? (
+        <ScrollReveal>
+          <Card>
+            <CardContent className="py-8 text-center text-empty">
+              No cardio logged for {formatDate(viewDate)}.
+            </CardContent>
+          </Card>
+        </ScrollReveal>
+      ) : (
         <div className="space-y-3">
           {cardioLogs.map((c, i) => (
             <ScrollReveal key={c.id} delay={revealDelay(i % 6, 75)} animation="slide-right">

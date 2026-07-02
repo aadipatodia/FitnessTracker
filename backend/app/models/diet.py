@@ -34,6 +34,7 @@ class DietEntry(Base):
     protein_g: Mapped[float] = mapped_column(Float, default=0)
     carbs_g: Mapped[float] = mapped_column(Float, default=0)
     fat_g: Mapped[float] = mapped_column(Float, default=0)
+    fibre_g: Mapped[float] = mapped_column(Float, default=0)
     source: Mapped[str] = mapped_column(String(50), default="database")  # database | gemini
     food_item_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("food_items.id"), nullable=True)
 

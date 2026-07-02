@@ -103,8 +103,12 @@ class ApiClient {
     return this.request<Workout>('/workouts', { method: 'POST', body: JSON.stringify(data) })
   }
 
-  getWorkouts(limit = 20) {
-    return this.request<Workout[]>(`/workouts?limit=${limit}`)
+  getWorkouts(params?: { workoutDate?: string; limit?: number }) {
+    const search = new URLSearchParams()
+    if (params?.workoutDate) search.set('workout_date', params.workoutDate)
+    if (params?.limit) search.set('limit', String(params.limit))
+    const query = search.toString()
+    return this.request<Workout[]>(`/workouts${query ? `?${query}` : ''}`)
   }
 
   deleteWorkout(id: number) {
@@ -116,8 +120,12 @@ class ApiClient {
     return this.request<DietLog>('/diet/log', { method: 'POST', body: JSON.stringify(data) })
   }
 
-  getDietLogs(limit = 30) {
-    return this.request<DietLog[]>(`/diet/logs?limit=${limit}`)
+  getDietLogs(params?: { logDate?: string; limit?: number }) {
+    const search = new URLSearchParams()
+    if (params?.logDate) search.set('log_date', params.logDate)
+    if (params?.limit) search.set('limit', String(params.limit))
+    const query = search.toString()
+    return this.request<DietLog[]>(`/diet/logs${query ? `?${query}` : ''}`)
   }
 
   deleteDietLog(id: number) {
@@ -391,12 +399,14 @@ export interface DietLog {
     protein_g: number
     carbs_g: number
     fat_g: number
+    fibre_g: number
     source: string
   }[]
   total_calories: number
   total_protein: number
   total_carbs: number
   total_fat: number
+  total_fibre: number
 }
 
 export interface BodyMetricCreate {
