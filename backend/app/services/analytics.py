@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session, joinedload
@@ -35,6 +35,7 @@ PROGRESS_WEIGHTS = {
 
 EXPECTED_WORKOUTS_PER_WEEK = 4
 DEADLINE_PACE_BUFFER = 5  # percentage points ahead/behind threshold
+ANALYSIS_CUTOFF_HOUR = 19  # include today's stats only from 7pm onward
 
 
 def get_active_goal(db: Session, user_id: int) -> FitnessGoal | None:
@@ -932,15 +933,57 @@ def build_goal_progress_summary(db: Session, user_id: int, as_of_date: date) -> 
     }
 
 
+def resolve_analysis_dates(
+    requested_date: date,
+    client_now: datetime | None = None,
+) -> dict:
+    """
+    When analysis is requested for today before 7pm (client local time),
+    exclude that incomplete day and use stats through yesterday.
+    """
+    now = client_now or datetime.now()
+    if now.tzinfo is not None:
+        local_now = now.astimezone(now.tzinfo)
+    else:
+        local_now = now
+
+    today = local_now.date()
+    exclude_requested_day = requested_date == today and local_now.hour < ANALYSIS_CUTOFF_HOUR
+    stats_through = requested_date - timedelta(days=1) if exclude_requested_day else requested_date
+
+    ctx = {
+        "requested_date": str(requested_date),
+        "stats_through_date": str(stats_through),
+        "exclude_requested_day": exclude_requested_day,
+        "analysis_cutoff_hour": ANALYSIS_CUTOFF_HOUR,
+    }
+    ctx["stats_basis_note"] = _build_stats_basis_note(ctx)
+    return ctx
+
+
+def _build_stats_basis_note(ctx: dict) -> str:
+    through = ctx["stats_through_date"]
+    if ctx["exclude_requested_day"]:
+        return (
+            f"Analysis based on stats through {through}. "
+            f"Data for {ctx['requested_date']} is not included because the day has just started "
+            f"(before {ctx['analysis_cutoff_hour']}:00)."
+        )
+    return f"Analysis based on stats through {through}."
+
+
 def gather_coaching_data(
     db: Session,
     user_id: int,
     days: int = 7,
     target_date: date | None = None,
     analysis_type: str = "daily",
+    client_datetime: datetime | None = None,
 ) -> dict:
     """Aggregate user data for AI coaching analysis."""
-    end_date = target_date or date.today()
+    requested_date = target_date or date.today()
+    date_ctx = resolve_analysis_dates(requested_date, client_datetime)
+    end_date = date.fromisoformat(date_ctx["stats_through_date"])
     goal = get_active_goal(db, user_id)
     metric = (
         db.query(BodyMetric)
@@ -952,7 +995,8 @@ def gather_coaching_data(
     if analysis_type == "goal":
         return {
             "analysis_type": "goal",
-            "analysis_date": str(end_date),
+            "analysis_date": date_ctx["requested_date"],
+            **date_ctx,
             "goal_progress": build_goal_progress_summary(db, user_id, end_date),
             "active_goal": _goal_snapshot(goal),
             "current_weight": metric.weight_kg if metric else (goal.current_weight if goal else None),
@@ -963,7 +1007,8 @@ def gather_coaching_data(
     if analysis_type == "weekly":
         return {
             "analysis_type": "weekly",
-            "analysis_date": str(end_date),
+            "analysis_date": date_ctx["requested_date"],
+            **date_ctx,
             "period_start": str(end_date - timedelta(days=6)),
             "period_end": str(end_date),
             "active_goal": _goal_snapshot(goal),
@@ -972,7 +1017,7 @@ def gather_coaching_data(
             "recovery_score_info": RECOVERY_SCORE_INFO,
         }
 
-    # Daily — single day only
+    # Daily — single day (stats_through_date when today is excluded before 7pm)
     body_weight = get_user_body_weight_kg(db, user_id)
     day_workouts = get_workouts_for_date(db, user_id, end_date)
     nutrition = get_nutrition_for_date(db, user_id, end_date)
@@ -981,7 +1026,9 @@ def gather_coaching_data(
     day_activities = get_activities_for_date(db, user_id, end_date, ActivityCategory.CARDIO)
     return {
         "analysis_type": "daily",
-        "analysis_date": str(end_date),
+        "analysis_date": date_ctx["requested_date"],
+        **date_ctx,
+        "data_date": str(end_date),
         "period_start": str(end_date),
         "period_end": str(end_date),
         "active_goal": _goal_snapshot(goal),

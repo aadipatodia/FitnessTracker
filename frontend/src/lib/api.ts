@@ -191,6 +191,7 @@ class ApiClient {
       body: JSON.stringify({
         analysis_type: type,
         analysis_date: analysisDate,
+        client_datetime: new Date().toISOString(),
       }),
     })
   }

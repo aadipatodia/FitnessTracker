@@ -105,6 +105,7 @@ async def analyze(
         days=7 if request.analysis_type == "weekly" else 1,
         target_date=analysis_date,
         analysis_type=request.analysis_type,
+        client_datetime=request.client_datetime,
     )
     analysis = await generate_coaching_analysis(user_data, request.analysis_type)
 
@@ -121,6 +122,10 @@ async def analyze(
             metadata_json={
                 "analysis_date": str(analysis_date),
                 "analysis_type": request.analysis_type,
+                "stats_through_date": user_data.get("stats_through_date"),
+                "exclude_requested_day": user_data.get("exclude_requested_day"),
+                "stats_basis_note": user_data.get("stats_basis_note"),
+                "data_date": user_data.get("data_date"),
                 "calorie_recommendation": analysis.get("calorie_recommendation"),
                 "protein_recommendation": analysis.get("protein_recommendation"),
                 "goal_completion_weeks": analysis.get("goal_completion_weeks"),

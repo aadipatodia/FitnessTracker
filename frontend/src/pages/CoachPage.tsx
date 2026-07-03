@@ -31,17 +31,17 @@ const sectionConfig: { type: AnalysisType; title: string; description: string }[
   {
     type: 'daily',
     title: 'Daily Analysis',
-    description: 'Workouts, diet, and recovery for the selected date only.',
+    description: 'Workouts, diet, and recovery for one day. Before 7pm, uses yesterday\'s completed data.',
   },
   {
     type: 'weekly',
     title: 'Weekly Summary',
-    description: 'Compact 7-day trends ending on the selected date.',
+    description: '7-day trends through the selected date. Before 7pm today, excludes today\'s partial data.',
   },
   {
     type: 'goal',
     title: 'Goal Progress',
-    description: 'Overall progress since your goal was set and advice to hit your deadline.',
+    description: 'Progress since your goal was set. Before 7pm today, stats run through yesterday.',
   },
 ]
 
@@ -140,6 +140,16 @@ function CalorieBalanceSummary({ metadata }: { metadata: CoachingInsight['metada
   )
 }
 
+function StatsBasisBanner({ metadata }: { metadata: CoachingInsight['metadata_json'] }) {
+  const note = metadata?.stats_basis_note
+  if (!note || typeof note !== 'string') return null
+  return (
+    <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-secondary-foreground">
+      {note}
+    </div>
+  )
+}
+
 function InsightCard({ insight }: { insight: CoachingInsight }) {
   return (
     <Card>
@@ -158,13 +168,16 @@ function InsightCard({ insight }: { insight: CoachingInsight }) {
               {insight.insight_type.replace('_', ' ')}
               {' · '}
               {insight.metadata_json?.analysis_type === 'weekly'
-                ? `Week ending ${insightDateLabel(insight)}`
-                : insightDateLabel(insight)}
+                ? `Week through ${formatDate(String(insight.metadata_json?.stats_through_date ?? insightDateLabel(insight)))}`
+                : insight.metadata_json?.data_date
+                  ? formatDate(String(insight.metadata_json.data_date))
+                  : insightDateLabel(insight)}
             </p>
           </div>
         </div>
       </CardHeader>
       <CardContent>
+        <StatsBasisBanner metadata={insight.metadata_json} />
         <FormattedText text={insight.content} />
         {insight.metadata_json?.analysis_type === 'daily' && (
           <CalorieBalanceSummary metadata={insight.metadata_json} />
@@ -286,9 +299,10 @@ export function CoachPage() {
             <div>
               <h3 className="text-lg font-semibold text-foreground">How it works</h3>
               <p className="mt-2 text-body-secondary">
-                Analyze Day covers only the selected date. Weekly Summary uses a compact 7-day rollup
-                (less data sent to AI). Goal Progress reviews everything since your goal was set and
-                advises on hitting your deadline.
+                Analyze Day covers one completed day of data. Weekly Summary uses a compact 7-day rollup.
+                Goal Progress reviews everything since your goal was set. If you run analysis before 7pm on
+                the selected date, today&apos;s partial stats are excluded and results are based on data
+                through the previous day — you&apos;ll see a note on each insight.
               </p>
             </div>
           </div>

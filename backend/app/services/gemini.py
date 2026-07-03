@@ -207,6 +207,17 @@ async def generate_coaching_analysis(user_data: dict, analysis_type: str = "dail
     """Generate AI coaching insights from user fitness data."""
     fallback = _fallback_coaching(user_data, analysis_type)
     analysis_date = user_data.get("analysis_date", "today")
+    stats_through = user_data.get("stats_through_date", analysis_date)
+    data_date = user_data.get("data_date", stats_through)
+    stats_basis_note = user_data.get(
+        "stats_basis_note",
+        f"Analysis based on stats through {stats_through}.",
+    )
+    stats_scope_rule = (
+        f"STATS SCOPE (mandatory — mention this in your first insight):\n"
+        f"- {stats_basis_note}\n"
+        f"- Use ONLY data through {stats_through}. Do not infer or assume stats for later dates."
+    )
     recovery_rules = (
         "RECOVERY SCORE RULES (from recovery_score_info in user data):\n"
         "- recovery_score uses ONLY sleep_hours and water_liters.\n"
@@ -235,7 +246,9 @@ async def generate_coaching_analysis(user_data: dict, analysis_type: str = "dail
 
 {INDIA_CONTEXT}
 
-Data is a compact summary from goal start through {analysis_date}. Use goal_progress for metrics — do not invent data.
+{stats_scope_rule}
+
+Data is a compact summary from goal start through {stats_through} (user selected {analysis_date}). Use goal_progress for metrics — do not invent data.
 
 {recovery_rules}
 
@@ -273,7 +286,9 @@ Cover: current progress vs targets; if no deadline, a recommended timeline with 
 
 {INDIA_CONTEXT}
 
-The week ends on {analysis_date} ({user_data.get("period_start")} to {user_data.get("period_end")}).
+{stats_scope_rule}
+
+The week ends on {stats_through} ({user_data.get("period_start")} to {user_data.get("period_end")}). User selected {analysis_date}.
 
 Sleep in daily_rollups is the night before that date through the morning of that date. Water/recovery_score are for the calendar day.
 
@@ -304,12 +319,14 @@ Insight type MUST be one of: daily, weekly, progression, nutrition, goal_estimat
 
 Reference strength_changes and daily_rollups (include calories_burned per day). Include one goal_estimate insight on deadline progress."""
     else:
-        prompt = f"""You are an expert fitness coach. Analyze ONLY the single day {analysis_date}.
+        prompt = f"""You are an expert fitness coach. Analyze ONLY the single day {data_date}.
 
 {INDIA_CONTEXT}
 
+{stats_scope_rule}
+
 CRITICAL RULES:
-- Every insight MUST be about {analysis_date} only.
+- Every insight MUST be about {data_date} only.
 - Do NOT mention workouts, nutrition, or recovery from any other date.
 - If there was no workout that day, say so — do not analyze other days' lifts.
 - Use workouts array (only this day's sessions), nutrition_for_date, calories_burned_for_date, calorie_balance, recovery_for_analysis_date, and recovery_score.
@@ -318,7 +335,7 @@ CRITICAL RULES:
 
 {calorie_rules}
 
-Sleep for {analysis_date} is the night before through the morning of that date.
+Sleep for {data_date} is the night before through the morning of that date.
 
 User Data:
 {json.dumps(user_data, indent=2, default=str)}

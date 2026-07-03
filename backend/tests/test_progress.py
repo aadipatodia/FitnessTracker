@@ -88,3 +88,44 @@ def test_strength_progress_with_lift():
 
 def test_deadline_pace_buffer_is_reasonable():
     assert DEADLINE_PACE_BUFFER == 5
+
+
+def test_exclude_today_before_7pm():
+    from datetime import datetime, timezone, timedelta
+
+    from app.services.analytics import resolve_analysis_dates, ANALYSIS_CUTOFF_HOUR
+
+    ist = timezone(timedelta(hours=5, minutes=30))
+    requested = date(2026, 3, 3)
+    morning = datetime(2026, 3, 3, 10, 0, tzinfo=ist)
+    ctx = resolve_analysis_dates(requested, morning)
+    assert ctx["exclude_requested_day"] is True
+    assert ctx["stats_through_date"] == "2026-03-02"
+    assert "2026-03-02" in ctx["stats_basis_note"]
+    assert str(ANALYSIS_CUTOFF_HOUR) in ctx["stats_basis_note"]
+
+
+def test_include_today_after_7pm():
+    from datetime import datetime, timezone, timedelta
+
+    from app.services.analytics import resolve_analysis_dates
+
+    ist = timezone(timedelta(hours=5, minutes=30))
+    requested = date(2026, 3, 3)
+    evening = datetime(2026, 3, 3, 20, 0, tzinfo=ist)
+    ctx = resolve_analysis_dates(requested, evening)
+    assert ctx["exclude_requested_day"] is False
+    assert ctx["stats_through_date"] == "2026-03-03"
+
+
+def test_past_date_always_included():
+    from datetime import datetime, timezone, timedelta
+
+    from app.services.analytics import resolve_analysis_dates
+
+    ist = timezone(timedelta(hours=5, minutes=30))
+    requested = date(2026, 3, 1)
+    morning = datetime(2026, 3, 3, 10, 0, tzinfo=ist)
+    ctx = resolve_analysis_dates(requested, morning)
+    assert ctx["exclude_requested_day"] is False
+    assert ctx["stats_through_date"] == "2026-03-01"

@@ -355,6 +355,7 @@ class CoachingInsightResponse(BaseModel):
 class CoachAnalysisRequest(BaseModel):
     analysis_type: str = "daily"  # daily | weekly | goal
     analysis_date: Optional[date] = None
+    client_datetime: Optional[datetime] = None
 
 
 # Dashboard
