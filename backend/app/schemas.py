@@ -358,10 +358,25 @@ class CoachAnalysisRequest(BaseModel):
 
 
 # Dashboard
+class ProgressBreakdown(BaseModel):
+    body_metrics: Optional[float] = None
+    daily_routine: Optional[float] = None
+    nutrition: Optional[float] = None
+    workouts: Optional[float] = None
+    recovery: Optional[float] = None
+    strength: Optional[float] = None
+
+
 class DashboardStats(BaseModel):
     current_weight: Optional[float]
     current_body_fat: Optional[float]
     goal_progress_percent: float
+    body_progress_percent: Optional[float] = None
+    progress_breakdown: Optional[ProgressBreakdown] = None
+    days_elapsed: Optional[int] = None
+    total_program_days: Optional[int] = None
+    expected_progress_percent: Optional[float] = None
+    deadline_status: Optional[str] = None
     calories_today: float
     calories_burned_today: float = 0
     calories_burned_workouts: float = 0

@@ -47,7 +47,7 @@ export function DashboardPage() {
   const statItems = [
     { title: 'Weight', value: stats?.current_weight ? `${stats.current_weight} kg` : '—', icon: <Scale className="h-5 w-5" /> },
     { title: 'Body Fat', value: stats?.current_body_fat ? `${stats.current_body_fat}%` : '—', icon: <Percent className="h-5 w-5" /> },
-    { title: 'Goal Progress', value: `${stats?.goal_progress_percent ?? 0}%`, subtitle: stats?.active_goal?.title, icon: <FlameKindling className="h-5 w-5" /> },
+    { title: 'Goal Progress', value: `${stats?.goal_progress_percent ?? 0}%`, subtitle: stats?.deadline_status && stats.deadline_status !== 'no_deadline' ? stats.deadline_status.replace('_', ' ') : 'routine + diet + workouts', icon: <FlameKindling className="h-5 w-5" /> },
     { title: 'Calories Today', value: Math.round(stats?.calories_today ?? 0), subtitle: stats?.target_calories ? `/ ${stats.target_calories} target` : undefined, icon: <Flame className="h-5 w-5" /> },
     {
       title: 'Calories Burned',

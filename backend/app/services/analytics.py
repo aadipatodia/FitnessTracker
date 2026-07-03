@@ -9,7 +9,8 @@ from app.models.diet import DietLog, DietEntry
 from app.models.body import BodyMetric
 from app.models.recovery import RecoveryLog
 from app.models.activity import ActivityLog, ActivityCategory
-from app.schemas import DashboardStats, DashboardCharts, ChartDataPoint, StrengthProgressPoint, GoalResponse
+from app.models.checkpoint import Checkpoint, CheckpointCompletion
+from app.schemas import DashboardStats, DashboardCharts, ChartDataPoint, StrengthProgressPoint, GoalResponse, ProgressBreakdown
 from app.services.workout_calories import estimate_minimum_workout_calories, estimate_workout_calories
 from app.services.activity_calories import (
     estimate_everyday_movement_burn,
@@ -22,6 +23,18 @@ RECOVERY_SCORE_INFO = {
     "formula": "Up to 57% from sleep (8h = full) plus up to 43% from water (3L = full). Maximum 100%.",
     "not_tracked": "Everyday movement burn is auto-estimated from body weight only (NEAT, not resting metabolism).",
 }
+
+# Default weights for composite progress (normalized when components are missing)
+PROGRESS_WEIGHTS = {
+    "body_metrics": 0.25,
+    "daily_routine": 0.25,
+    "nutrition": 0.20,
+    "workouts": 0.20,
+    "recovery": 0.10,
+}
+
+EXPECTED_WORKOUTS_PER_WEEK = 4
+DEADLINE_PACE_BUFFER = 5  # percentage points ahead/behind threshold
 
 
 def get_active_goal(db: Session, user_id: int) -> FitnessGoal | None:
@@ -203,6 +216,7 @@ def calculate_recovery_score(db: Session, user_id: int) -> float:
 
 
 def calculate_goal_progress(goal: FitnessGoal | None, latest_metric: BodyMetric | None) -> float:
+    """Body-metric progress only (weight, body fat, or strength lift)."""
     if not goal:
         return 0.0
 
@@ -225,6 +239,230 @@ def calculate_goal_progress(goal: FitnessGoal | None, latest_metric: BodyMetric 
     return 0.0
 
 
+def calculate_strength_progress(
+    goal: FitnessGoal,
+    workouts: list[Workout],
+) -> float | None:
+    if not goal.target_exercise or not goal.target_weight_lifted:
+        return None
+
+    peaks = _max_weight_by_exercise(workouts)
+    current_peak = None
+    for name, weight in peaks.items():
+        if goal.target_exercise.lower() in name.lower():
+            current_peak = weight
+            break
+
+    if current_peak is None:
+        return 0.0
+
+    # Assume starting lift is ~70% of target if not tracked separately
+    start_lift = goal.target_weight_lifted * 0.7
+    total = goal.target_weight_lifted - start_lift
+    if total <= 0:
+        return 100.0
+    progress = (current_peak - start_lift) / total * 100
+    return round(max(0, min(100, progress)), 1)
+
+
+def calculate_routine_adherence(
+    db: Session, user_id: int, start_date: date, end_date: date,
+) -> float | None:
+    checkpoints = db.query(Checkpoint).filter(Checkpoint.user_id == user_id).all()
+    if not checkpoints:
+        return None
+
+    days = _date_range(start_date, end_date)
+    if not days:
+        return None
+
+    total_possible = len(checkpoints) * len(days)
+    completed = (
+        db.query(CheckpointCompletion)
+        .filter(
+            CheckpointCompletion.user_id == user_id,
+            CheckpointCompletion.log_date >= start_date,
+            CheckpointCompletion.log_date <= end_date,
+            CheckpointCompletion.completed == True,
+        )
+        .count()
+    )
+    return round(completed / total_possible * 100, 1)
+
+
+def calculate_nutrition_adherence(
+    db: Session, user_id: int, goal: FitnessGoal, start_date: date, end_date: date,
+) -> float | None:
+    days = _date_range(start_date, end_date)
+    if not days:
+        return None
+
+    target_protein = goal.target_protein or int((goal.current_weight or 75) * 1.8)
+    logged_days = 0
+    on_target_days = 0
+
+    for day in days:
+        nutrition = get_nutrition_for_date(db, user_id, day)
+        if nutrition["protein"] <= 0 and nutrition["calories"] <= 0:
+            continue
+        logged_days += 1
+        if nutrition["protein"] >= target_protein * 0.9:
+            on_target_days += 1
+        elif goal.target_calories and nutrition["calories"] > 0:
+            calorie_ok = abs(nutrition["calories"] - goal.target_calories) <= goal.target_calories * 0.15
+            if calorie_ok:
+                on_target_days += 1
+
+    if logged_days == 0:
+        return None
+    return round(on_target_days / logged_days * 100, 1)
+
+
+def calculate_workout_adherence(
+    db: Session, user_id: int, start_date: date, end_date: date,
+) -> float | None:
+    days = _date_range(start_date, end_date)
+    if not days:
+        return None
+
+    workout_dates = {
+        row.workout_date
+        for row in db.query(Workout.workout_date)
+        .filter(
+            Workout.user_id == user_id,
+            Workout.workout_date >= start_date,
+            Workout.workout_date <= end_date,
+        )
+        .distinct()
+        .all()
+    }
+    if not workout_dates:
+        return 0.0
+
+    expected_per_day = EXPECTED_WORKOUTS_PER_WEEK / 7
+    expected_total = len(days) * expected_per_day
+    actual = len(workout_dates)
+    return round(min(100, actual / expected_total * 100), 1)
+
+
+def calculate_recovery_adherence(
+    db: Session, user_id: int, start_date: date, end_date: date,
+) -> float | None:
+    days = _date_range(start_date, end_date)
+    scores = [
+        calculate_recovery_score_for_date(db, user_id, day)
+        for day in days
+    ]
+    logged = [s for s in scores if s > 0]
+    if not logged:
+        return None
+    return round(sum(logged) / len(logged), 1)
+
+
+def calculate_overall_progress(
+    db: Session,
+    user_id: int,
+    goal: FitnessGoal | None,
+    latest_metric: BodyMetric | None,
+    as_of_date: date | None = None,
+) -> dict:
+    """
+    Composite progress from daily routine, nutrition, workouts, recovery, and body metrics.
+    Includes deadline pacing when a target date is set.
+    """
+    if not goal:
+        return {
+            "overall_percent": 0.0,
+            "body_percent": None,
+            "breakdown": None,
+            "days_elapsed": None,
+            "total_program_days": None,
+            "expected_progress_percent": None,
+            "deadline_status": "no_deadline",
+        }
+
+    today = as_of_date or date.today()
+    goal_start = goal.created_at.date()
+    days_elapsed = max(1, (today - goal_start).days + 1)
+
+    workouts = (
+        db.query(Workout)
+        .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
+        .filter(
+            Workout.user_id == user_id,
+            Workout.workout_date >= goal_start,
+            Workout.workout_date <= today,
+        )
+        .all()
+    )
+
+    if goal.goal_type.value == "increase_strength":
+        body_percent = calculate_strength_progress(goal, workouts)
+    else:
+        body_percent = calculate_goal_progress(goal, latest_metric)
+        if body_percent == 0.0 and not (goal.target_weight or goal.target_body_fat):
+            body_percent = None
+
+    routine_percent = calculate_routine_adherence(db, user_id, goal_start, today)
+    nutrition_percent = calculate_nutrition_adherence(db, user_id, goal, goal_start, today)
+    workout_percent = calculate_workout_adherence(db, user_id, goal_start, today)
+    recovery_percent = calculate_recovery_adherence(db, user_id, goal_start, today)
+
+    components: dict[str, tuple[float, float]] = {}
+    if body_percent is not None:
+        components["body_metrics"] = (body_percent, PROGRESS_WEIGHTS["body_metrics"])
+    if routine_percent is not None:
+        components["daily_routine"] = (routine_percent, PROGRESS_WEIGHTS["daily_routine"])
+    if nutrition_percent is not None:
+        components["nutrition"] = (nutrition_percent, PROGRESS_WEIGHTS["nutrition"])
+    if workout_percent is not None:
+        components["workouts"] = (workout_percent, PROGRESS_WEIGHTS["workouts"])
+    if recovery_percent is not None:
+        components["recovery"] = (recovery_percent, PROGRESS_WEIGHTS["recovery"])
+
+    if components:
+        total_weight = sum(w for _, w in components.values())
+        overall = sum(v * w / total_weight for v, w in components.values())
+        overall_percent = round(max(0, min(100, overall)), 1)
+    else:
+        overall_percent = body_percent if body_percent is not None else 0.0
+
+    breakdown = ProgressBreakdown(
+        body_metrics=body_percent if goal.goal_type.value != "increase_strength" else None,
+        daily_routine=routine_percent,
+        nutrition=nutrition_percent,
+        workouts=workout_percent,
+        recovery=recovery_percent,
+        strength=body_percent if goal.goal_type.value == "increase_strength" else None,
+    )
+
+    target_date = goal.target_date.date() if goal.target_date else None
+    total_program_days = None
+    expected_progress_percent = None
+    deadline_status = "no_deadline"
+
+    if target_date and target_date >= goal_start:
+        total_program_days = (target_date - goal_start).days + 1
+        expected_progress_percent = round(min(100, days_elapsed / total_program_days * 100), 1)
+        gap = overall_percent - expected_progress_percent
+        if gap >= DEADLINE_PACE_BUFFER:
+            deadline_status = "ahead"
+        elif gap <= -DEADLINE_PACE_BUFFER:
+            deadline_status = "behind"
+        else:
+            deadline_status = "on_track"
+
+    return {
+        "overall_percent": overall_percent,
+        "body_percent": body_percent,
+        "breakdown": breakdown,
+        "days_elapsed": days_elapsed,
+        "total_program_days": total_program_days,
+        "expected_progress_percent": expected_progress_percent,
+        "deadline_status": deadline_status,
+    }
+
+
 def get_dashboard_stats(db: Session, user_id: int) -> DashboardStats:
     goal = get_active_goal(db, user_id)
     latest_metric = (
@@ -235,6 +473,7 @@ def get_dashboard_stats(db: Session, user_id: int) -> DashboardStats:
     )
     nutrition = get_today_nutrition(db, user_id)
     burn = get_calorie_burn_breakdown(db, user_id, date.today())
+    progress_data = calculate_overall_progress(db, user_id, goal, latest_metric)
 
     goal_response = None
     if goal:
@@ -259,7 +498,13 @@ def get_dashboard_stats(db: Session, user_id: int) -> DashboardStats:
     return DashboardStats(
         current_weight=latest_metric.weight_kg if latest_metric else (goal.current_weight if goal else None),
         current_body_fat=latest_metric.body_fat_percent if latest_metric else (goal.current_body_fat if goal else None),
-        goal_progress_percent=calculate_goal_progress(goal, latest_metric),
+        goal_progress_percent=progress_data["overall_percent"],
+        body_progress_percent=progress_data["body_percent"],
+        progress_breakdown=progress_data["breakdown"],
+        days_elapsed=progress_data["days_elapsed"],
+        total_program_days=progress_data["total_program_days"],
+        expected_progress_percent=progress_data["expected_progress_percent"],
+        deadline_status=progress_data["deadline_status"],
         calories_today=nutrition["calories"],
         calories_burned_today=burn["total"],
         calories_burned_workouts=burn["workouts"],
@@ -643,6 +888,8 @@ def build_goal_progress_summary(db: Session, user_id: int, as_of_date: date) -> 
         else goal.current_body_fat
     )
 
+    progress_data = calculate_overall_progress(db, user_id, goal, latest_metric, as_of_date)
+
     return {
         "has_goal": True,
         "goal": _goal_snapshot(goal),
@@ -650,7 +897,8 @@ def build_goal_progress_summary(db: Session, user_id: int, as_of_date: date) -> 
         "days_since_start": (as_of_date - goal_start).days + 1,
         "days_until_deadline": days_until,
         "weeks_until_deadline": max(0, (days_until + 6) // 7) if days_until is not None else None,
-        "progress_percent": calculate_goal_progress(goal, latest_metric),
+        "progress_percent": progress_data["overall_percent"],
+        "progress_breakdown": progress_data,
         "body_metrics": {
             "starting_weight": goal.current_weight,
             "current_weight": current_weight,

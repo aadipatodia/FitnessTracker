@@ -9,8 +9,13 @@ import {
   Beef,
   ArrowRight,
   AlertTriangle,
+  CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  ListChecks,
+  Heart,
 } from 'lucide-react'
-import { DashboardStats } from '@/lib/api'
+import { DashboardStats, ProgressBreakdown } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn, formatDate } from '@/lib/utils'
@@ -41,29 +46,53 @@ function MetricPair({
   target,
   unit,
   icon,
+  progressPercent,
 }: {
   label: string
   current?: number
   target?: number
   unit: string
   icon: React.ReactNode
+  progressPercent?: number
 }) {
-  if (!target && !current) return null
+  if (!target && !current && progressPercent == null) return null
   return (
     <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 transition-all duration-300 hover:border-primary/20 hover:bg-secondary/50">
       <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-accent">
         {icon}
         {label}
       </div>
-      <p className="mt-2 text-lg font-semibold font-display text-foreground">
-        {current != null ? `${current}${unit}` : '—'}
-        {target != null && (
-          <span className="text-secondary-foreground font-medium"> → {target}{unit}</span>
-        )}
-      </p>
+      {progressPercent != null ? (
+        <p className="mt-2 text-lg font-semibold font-display text-foreground">
+          {progressPercent}%
+          <span className="text-secondary-foreground font-medium text-base"> adherence</span>
+        </p>
+      ) : (
+        <p className="mt-2 text-lg font-semibold font-display text-foreground">
+          {current != null ? `${current}${unit}` : '—'}
+          {target != null && (
+            <span className="text-secondary-foreground font-medium"> → {target}{unit}</span>
+          )}
+        </p>
+      )}
     </div>
   )
 }
+
+const DEADLINE_STATUS_LABELS: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
+  ahead: { label: 'Ahead of schedule', className: 'text-emerald-400', icon: <TrendingUp className="h-4 w-4 shrink-0" /> },
+  on_track: { label: 'On track', className: 'text-primary', icon: <CheckCircle2 className="h-4 w-4 shrink-0" /> },
+  behind: { label: 'Behind schedule', className: 'text-amber-400', icon: <TrendingDown className="h-4 w-4 shrink-0" /> },
+}
+
+const BREAKDOWN_LABELS: { key: keyof ProgressBreakdown; label: string; icon: React.ReactNode }[] = [
+  { key: 'daily_routine', label: 'Daily routine', icon: <ListChecks className="h-4 w-4" /> },
+  { key: 'nutrition', label: 'Nutrition', icon: <Beef className="h-4 w-4" /> },
+  { key: 'workouts', label: 'Workouts', icon: <Dumbbell className="h-4 w-4" /> },
+  { key: 'recovery', label: 'Recovery', icon: <Heart className="h-4 w-4" /> },
+  { key: 'body_metrics', label: 'Body metrics', icon: <Scale className="h-4 w-4" /> },
+  { key: 'strength', label: 'Strength', icon: <Dumbbell className="h-4 w-4" /> },
+]
 
 export function GoalSection({ stats }: { stats: DashboardStats | null }) {
   const goal = stats?.active_goal
@@ -102,6 +131,11 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
   const daysLeft = goal.target_date ? daysUntil(goal.target_date) : null
   const isOverdue = daysLeft != null && daysLeft < 0
   const progress = stats?.goal_progress_percent ?? 0
+  const breakdown = stats?.progress_breakdown
+  const deadlineStatus = stats?.deadline_status
+  const statusInfo = deadlineStatus && deadlineStatus !== 'no_deadline'
+    ? DEADLINE_STATUS_LABELS[deadlineStatus]
+    : null
 
   const showBodyFat =
     goal.goal_type === 'reduce_body_fat' || goal.goal_type === 'lose_fat_gain_muscle'
@@ -133,29 +167,45 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {goal.target_date && (
-          <div
-            className={`flex items-center gap-2 text-base font-medium ${
-              isOverdue ? 'text-amber-400' : 'text-secondary-foreground'
-            }`}
-          >
-            {isOverdue ? (
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-            ) : (
-              <Calendar className="h-4 w-4 shrink-0" />
-            )}
-            <span>
-              Deadline: {formatDate(goal.target_date)}
-              {daysLeft != null && (
-                <>
-                  {' · '}
-                  {isOverdue
-                    ? `${Math.abs(daysLeft)} day${Math.abs(daysLeft) !== 1 ? 's' : ''} overdue`
-                    : daysLeft === 0
-                      ? 'Due today'
-                      : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`}
-                </>
+          <div className="space-y-2">
+            <div
+              className={`flex items-center gap-2 text-base font-medium ${
+                isOverdue ? 'text-amber-400' : 'text-secondary-foreground'
+              }`}
+            >
+              {isOverdue ? (
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+              ) : (
+                <Calendar className="h-4 w-4 shrink-0" />
               )}
-            </span>
+              <span>
+                Deadline: {formatDate(goal.target_date)}
+                {daysLeft != null && (
+                  <>
+                    {' · '}
+                    {isOverdue
+                      ? `${Math.abs(daysLeft)} day${Math.abs(daysLeft) !== 1 ? 's' : ''} overdue`
+                      : daysLeft === 0
+                        ? 'Due today'
+                        : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`}
+                  </>
+                )}
+              </span>
+            </div>
+            {stats?.days_elapsed != null && stats?.total_program_days != null && (
+              <p className="text-sm text-secondary-foreground">
+                Day {stats.days_elapsed} of {stats.total_program_days}
+                {stats.expected_progress_percent != null && (
+                  <> · expected pace {stats.expected_progress_percent}%</>
+                )}
+              </p>
+            )}
+            {statusInfo && (
+              <div className={`flex items-center gap-2 text-sm font-medium ${statusInfo.className}`}>
+                {statusInfo.icon}
+                {statusInfo.label}
+              </div>
+            )}
           </div>
         )}
 
@@ -170,7 +220,33 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
               style={{ width: `${Math.min(100, progress)}%` }}
             />
           </div>
+          {stats?.expected_progress_percent != null && goal.target_date && (
+            <div className="relative mt-1 h-1">
+              <div
+                className="absolute top-0 h-2 w-0.5 bg-secondary-foreground/50"
+                style={{ left: `${Math.min(100, stats.expected_progress_percent)}%` }}
+                title={`Expected pace: ${stats.expected_progress_percent}%`}
+              />
+            </div>
+          )}
+          <p className="mt-2 text-sm text-secondary-foreground">
+            Based on your daily routine, nutrition, workouts, recovery, and body metrics — not weight alone.
+          </p>
         </div>
+
+        {breakdown && BREAKDOWN_LABELS.some(({ key }) => breakdown[key] != null) && (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {BREAKDOWN_LABELS.filter(({ key }) => breakdown[key] != null).map(({ key, label, icon }) => (
+              <MetricPair
+                key={key}
+                label={label}
+                progressPercent={breakdown[key]}
+                unit=""
+                icon={icon}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {showWeight && (
@@ -192,13 +268,22 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
             />
           )}
           {showStrength && goal.target_exercise && (
-            <MetricPair
-              label={goal.target_exercise}
-              current={undefined}
-              target={goal.target_weight_lifted}
-              unit=" kg"
-              icon={<Dumbbell className="h-4 w-4" />}
-            />
+            breakdown?.strength != null ? (
+              <MetricPair
+                label={goal.target_exercise}
+                progressPercent={breakdown.strength}
+                unit=" kg"
+                icon={<Dumbbell className="h-4 w-4" />}
+              />
+            ) : (
+              <MetricPair
+                label={goal.target_exercise}
+                current={undefined}
+                target={goal.target_weight_lifted}
+                unit=" kg"
+                icon={<Dumbbell className="h-4 w-4" />}
+              />
+            )
           )}
           {goal.target_calories != null && (
             <div className="rounded-xl border border-border/60 bg-secondary/30 p-3 transition-all duration-300 hover:border-primary/20">

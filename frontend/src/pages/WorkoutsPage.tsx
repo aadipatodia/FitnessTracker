@@ -90,6 +90,14 @@ export function WorkoutsPage() {
     setExercises(exercises.filter((_, i) => i !== exIdx))
   }
 
+  const removeSet = (exIdx: number, setIdx: number) => {
+    const updated = [...exercises]
+    updated[exIdx].sets = updated[exIdx].sets
+      .filter((_, i) => i !== setIdx)
+      .map((s, i) => ({ ...s, set_number: i + 1 }))
+    setExercises(updated)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
@@ -265,7 +273,14 @@ export function WorkoutsPage() {
                     <div className="space-y-3 md:hidden">
                       {ex.sets.map((set, setIdx) => (
                         <div key={setIdx} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-                          <p className="text-sm font-medium">Set {set.set_number}</p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium">Set {set.set_number}</p>
+                            {ex.sets.length > 1 && (
+                              <Button type="button" variant="ghost" size="sm" onClick={() => removeSet(exIdx, setIdx)} aria-label="Delete set">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                               <span className="text-label text-[0.75rem] normal-case">Weight (kg)</span>
@@ -294,7 +309,13 @@ export function WorkoutsPage() {
                           <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
                           <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
                           <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
-                          <span />
+                          {ex.sets.length > 1 ? (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeSet(exIdx, setIdx)} aria-label="Delete set">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          ) : (
+                            <span />
+                          )}
                         </div>
                       ))}
                     </div>

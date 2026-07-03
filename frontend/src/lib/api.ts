@@ -461,10 +461,25 @@ export interface ActivityLog {
   created_at: string
 }
 
+export interface ProgressBreakdown {
+  body_metrics?: number
+  daily_routine?: number
+  nutrition?: number
+  workouts?: number
+  recovery?: number
+  strength?: number
+}
+
 export interface DashboardStats {
   current_weight?: number
   current_body_fat?: number
   goal_progress_percent: number
+  body_progress_percent?: number
+  progress_breakdown?: ProgressBreakdown
+  days_elapsed?: number
+  total_program_days?: number
+  expected_progress_percent?: number
+  deadline_status?: 'ahead' | 'on_track' | 'behind' | 'no_deadline'
   calories_today: number
   calories_burned_today: number
   calories_burned_workouts?: number
