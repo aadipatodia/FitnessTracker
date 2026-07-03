@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import google.generativeai as genai
 from dateutil import parser as date_parser
@@ -464,6 +464,62 @@ def _weeks_until(target: date, today: date | None = None) -> int:
     return max(1, (days + 6) // 7)
 
 
+def estimate_recommended_weeks(goal_data: dict) -> int:
+    """Evidence-based timeline when FitAI is unavailable (matches coaching prompt rates)."""
+    goal_type = (goal_data.get("goal_type") or "").lower()
+    age = goal_data.get("age")
+    age_factor = 1.15 if age and age >= 45 else 1.0
+
+    current_bf = goal_data.get("current_body_fat")
+    target_bf = goal_data.get("target_body_fat")
+    if current_bf and target_bf and current_bf > target_bf:
+        if "recomp" in goal_type or "muscle" in goal_type:
+            weeks = (current_bf - target_bf) / 0.2
+        else:
+            weeks = (current_bf - target_bf) / 0.35
+        return max(4, int(weeks * age_factor))
+
+    current_w = goal_data.get("current_weight")
+    target_w = goal_data.get("target_weight")
+    if current_w and target_w and abs(current_w - target_w) >= 0.5:
+        delta = abs(current_w - target_w)
+        weeks = delta / 0.5 if current_w > target_w else delta / 0.35
+        return max(4, int(weeks * age_factor))
+
+    current_lift = goal_data.get("current_weight_lifted")
+    target_lift = goal_data.get("target_weight_lifted")
+    if target_lift and "strength" in goal_type:
+        baseline = current_lift or (target_lift * 0.7)
+        gap = max(0, target_lift - baseline)
+        weeks = gap / 2.0  # ~2 kg/month on main lift
+        return max(8, int(weeks * age_factor))
+
+    return max(8, int(12 * age_factor))
+
+
+def apply_recommended_timeline(result: dict, goal_data: dict, user_target_date: date | None) -> dict:
+    """Attach FitAI-recommended deadline when the user did not set one."""
+    if user_target_date:
+        result["recommended_weeks"] = None
+        result["recommended_target_date"] = None
+        result["weeks_available"] = _weeks_until(user_target_date)
+        return result
+
+    raw_weeks = result.get("recommended_weeks")
+    if raw_weeks is None:
+        weeks = estimate_recommended_weeks(goal_data)
+    else:
+        try:
+            weeks = max(1, int(raw_weeks))
+        except (TypeError, ValueError):
+            weeks = estimate_recommended_weeks(goal_data)
+
+    result["recommended_weeks"] = weeks
+    result["recommended_target_date"] = (date.today() + timedelta(weeks=weeks)).isoformat()
+    result["weeks_available"] = weeks
+    return result
+
+
 async def evaluate_goal_plan(goal_data: dict) -> dict:
     """Assess deadline feasibility, expected outcomes, and nutrition targets."""
     target_date = _parse_target_date(goal_data)
@@ -514,7 +570,9 @@ If no target_date (NO DEADLINE PROVIDED):
 - For men: factor in age-related recovery capacity and muscle-loss risk (especially 40+).
 - Use sustainable evidence-based rates (see above); do NOT promise unrealistically fast results.
 - Set realistic=true and intensity to "sustainable" or "aggressive" as appropriate for the recommended plan.
+- Set recommended_weeks to the number of weeks for your recommended timeline (integer, minimum 4).
 - Populate headline, expected_by_deadline, and aggressive_plan with the recommended timeline (weeks/months) and what they can expect by then. Fill projected_body_fat, projected_weight, and/or projected_lift with realistic end-state values for that timeline.
+- If the user DID provide a target_date, set recommended_weeks to null.
 
 NUTRITION TARGET RULES (critical):
 - Use gender and age (when provided) to estimate TDEE and realistic calorie/protein targets.
@@ -534,23 +592,26 @@ Return ONLY valid JSON (no markdown):
   "projected_weight": number or null,
   "projected_lift": number or null,
   "target_calories": number or null,
-  "target_protein": number or null
+  "target_protein": number or null,
+  "recommended_weeks": number or null
 }}""",
         _fallback_goal_plan(goal_data),
     )
 
-    result["weeks_available"] = weeks if weeks is not None else 0
-    return apply_stated_nutrition_targets(result, goal_data)
+    return apply_stated_nutrition_targets(
+        apply_recommended_timeline(result, goal_data, target_date),
+        goal_data,
+    )
 
 
 def _fallback_goal_plan(goal_data: dict) -> dict:
     weight = goal_data.get("current_weight") or 75
     target_date = _parse_target_date(goal_data)
-    weeks = _weeks_until(target_date) if target_date else None
+    weeks = _weeks_until(target_date) if target_date else estimate_recommended_weeks(goal_data)
     stated = parse_stated_nutrition_targets(goal_data.get("end_goal"))
-    return {
+    result = {
         "realistic": True,
-        "intensity": "none",
+        "intensity": "sustainable" if not target_date else "none",
         "weeks_available": weeks if weeks is not None else 0,
         "headline": "",
         "expected_by_deadline": "",
@@ -560,7 +621,9 @@ def _fallback_goal_plan(goal_data: dict) -> dict:
         "projected_lift": None,
         "target_calories": stated.get("target_calories") or int(weight * 30),
         "target_protein": stated.get("target_protein") or int(weight * 1.8),
+        "recommended_weeks": None if target_date else weeks,
     }
+    return apply_recommended_timeline(result, goal_data, target_date)
 
 
 def _fallback_coaching(user_data: dict, analysis_type: str) -> dict:

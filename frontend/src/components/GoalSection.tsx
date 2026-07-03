@@ -230,7 +230,8 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
             </div>
           )}
           <p className="mt-2 text-sm text-secondary-foreground">
-            Based on your daily routine, nutrition, workouts, recovery, and body metrics — not weight alone.
+            Journey completion toward your deadline — time elapsed × daily execution, plus any body metric gains.
+            Breakdown cards below show how well you&apos;re executing each area.
           </p>
         </div>
 

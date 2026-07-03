@@ -77,7 +77,9 @@ export function GoalPlanAssessment({
               {weeksUntilDeadline > 0 && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-background/60 px-2.5 py-1 text-sm font-medium text-foreground">
                   <Calendar className="h-3 w-3" />
-                  {weeksUntilDeadline} week{weeksUntilDeadline !== 1 ? 's' : ''} left
+                  {feasibility.recommended_target_date
+                    ? `FitAI timeline · ${weeksUntilDeadline} week${weeksUntilDeadline !== 1 ? 's' : ''}`
+                    : `${weeksUntilDeadline} week${weeksUntilDeadline !== 1 ? 's' : ''} left`}
                 </span>
               )}
               {intensityLabel && (

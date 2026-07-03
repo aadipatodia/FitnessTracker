@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -60,8 +62,39 @@ async def evaluate_goal_feasibility(
     return GoalFeasibilityResponse(**result)
 
 
+def _goal_evaluate_payload(user: User, data: GoalCreate) -> dict:
+    return _profile_fields(user, {
+        "goal_type": data.goal_type,
+        "end_goal": data.description,
+        "gender": data.gender,
+        "age": data.age,
+        "target_date": data.target_date,
+        "current_body_fat": data.current_body_fat,
+        "target_body_fat": data.target_body_fat,
+        "current_weight": data.current_weight,
+        "target_weight": data.target_weight,
+        "target_exercise": data.target_exercise,
+        "target_weight_lifted": data.target_weight_lifted,
+    })
+
+
+async def _resolve_target_date(user: User, data: GoalCreate) -> date | None:
+    if data.target_date:
+        return data.target_date
+
+    evaluation = await evaluate_goal_plan(_goal_evaluate_payload(user, data))
+    raw = evaluation.get("recommended_target_date")
+    if not raw:
+        return None
+    if isinstance(raw, date):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        return date.fromisoformat(raw)
+    return None
+
+
 @router.post("", response_model=GoalResponse)
-def create_goal(
+async def create_goal(
     data: GoalCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -72,11 +105,17 @@ def create_goal(
         FitnessGoal.user_id == current_user.id, FitnessGoal.is_active == True
     ).update({"is_active": False})
 
+    effective_target_date = await _resolve_target_date(current_user, data)
+    description = data.description
+    if effective_target_date and not data.target_date:
+        tag = f"[FitAI recommended deadline: {effective_target_date.isoformat()}]"
+        description = f"{description}\n\n{tag}" if description else tag
+
     goal = FitnessGoal(
         user_id=current_user.id,
         goal_type=GoalType(data.goal_type),
         title=data.title,
-        description=data.description,
+        description=description,
         target_body_fat=data.target_body_fat,
         current_body_fat=data.current_body_fat,
         target_weight=data.target_weight,
@@ -85,7 +124,7 @@ def create_goal(
         target_weight_lifted=data.target_weight_lifted,
         target_calories=data.target_calories or 2200,
         target_protein=data.target_protein or 150,
-        target_date=data.target_date,
+        target_date=effective_target_date,
     )
     db.add(goal)
     db.commit()

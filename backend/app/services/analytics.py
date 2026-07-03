@@ -38,6 +38,13 @@ DEADLINE_PACE_BUFFER = 5  # percentage points ahead/behind threshold
 ANALYSIS_CUTOFF_HOUR = 19  # include today's stats only from 7pm onward
 
 
+def compute_time_progress_percent(days_elapsed: int, total_program_days: int) -> float:
+    """Percent of the user's program timeline elapsed (goal start → target date)."""
+    if total_program_days <= 0:
+        return 0.0
+    return min(100.0, days_elapsed / total_program_days * 100)
+
+
 def get_active_goal(db: Session, user_id: int) -> FitnessGoal | None:
     return (
         db.query(FitnessGoal)
@@ -360,6 +367,31 @@ def calculate_recovery_adherence(
     return round(sum(logged) / len(logged), 1)
 
 
+def compute_journey_progress_percent(
+    outcome_percent: float | None,
+    execution_adherence: float | None,
+    time_progress: float | None,
+    days_elapsed: int,
+) -> float:
+    """
+    Journey completion toward the goal — not raw adherence average.
+
+    With a deadline: earned progress ≈ (time elapsed × execution quality), capped by
+    actual body/strength outcome when ahead of schedule.
+    """
+    outcome = outcome_percent or 0.0
+    adherence = execution_adherence if execution_adherence is not None else 50.0
+
+    if time_progress is not None:
+        execution_credit = time_progress * (adherence / 100)
+        overall = max(outcome, execution_credit)
+    else:
+        # No deadline on the goal — only measurable body/strength outcome counts
+        overall = outcome
+
+    return round(max(0, min(100, overall)), 1)
+
+
 def calculate_overall_progress(
     db: Session,
     user_id: int,
@@ -410,8 +442,6 @@ def calculate_overall_progress(
     recovery_percent = calculate_recovery_adherence(db, user_id, goal_start, today)
 
     components: dict[str, tuple[float, float]] = {}
-    if body_percent is not None:
-        components["body_metrics"] = (body_percent, PROGRESS_WEIGHTS["body_metrics"])
     if routine_percent is not None:
         components["daily_routine"] = (routine_percent, PROGRESS_WEIGHTS["daily_routine"])
     if nutrition_percent is not None:
@@ -422,11 +452,12 @@ def calculate_overall_progress(
         components["recovery"] = (recovery_percent, PROGRESS_WEIGHTS["recovery"])
 
     if components:
-        total_weight = sum(w for _, w in components.values())
-        overall = sum(v * w / total_weight for v, w in components.values())
-        overall_percent = round(max(0, min(100, overall)), 1)
+        exec_weight = sum(w for _, w in components.values())
+        execution_adherence = sum(v * w / exec_weight for v, w in components.values())
     else:
-        overall_percent = body_percent if body_percent is not None else 0.0
+        execution_adherence = None
+
+    outcome_percent = body_percent
 
     breakdown = ProgressBreakdown(
         body_metrics=body_percent if goal.goal_type.value != "increase_strength" else None,
@@ -441,10 +472,21 @@ def calculate_overall_progress(
     total_program_days = None
     expected_progress_percent = None
     deadline_status = "no_deadline"
+    time_progress = None
 
     if target_date and target_date >= goal_start:
         total_program_days = (target_date - goal_start).days + 1
-        expected_progress_percent = round(min(100, days_elapsed / total_program_days * 100), 1)
+        time_progress = compute_time_progress_percent(days_elapsed, total_program_days)
+        expected_progress_percent = round(time_progress, 1)
+
+    overall_percent = compute_journey_progress_percent(
+        outcome_percent=outcome_percent,
+        execution_adherence=execution_adherence,
+        time_progress=time_progress,
+        days_elapsed=days_elapsed,
+    )
+
+    if time_progress is not None:
         gap = overall_percent - expected_progress_percent
         if gap >= DEADLINE_PACE_BUFFER:
             deadline_status = "ahead"

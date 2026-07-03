@@ -1,6 +1,8 @@
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
+
 from app.services.analytics import (
     calculate_goal_progress,
     calculate_strength_progress,
@@ -129,3 +131,61 @@ def test_past_date_always_included():
     ctx = resolve_analysis_dates(requested, morning)
     assert ctx["exclude_requested_day"] is False
     assert ctx["stats_through_date"] == "2026-03-01"
+
+
+def test_journey_progress_scales_with_user_timeline():
+    from app.services.analytics import compute_journey_progress_percent, compute_time_progress_percent
+
+    days_elapsed = 3
+    total_program_days = 75  # example only — production uses each goal's target_date
+    execution_adherence = 90.0
+    time_progress = compute_time_progress_percent(days_elapsed, total_program_days)
+    overall = compute_journey_progress_percent(
+        outcome_percent=0.0,
+        execution_adherence=execution_adherence,
+        time_progress=time_progress,
+        days_elapsed=days_elapsed,
+    )
+    assert overall == round(time_progress * execution_adherence / 100, 1)
+    assert overall < (days_elapsed / total_program_days * 100) + 1
+
+
+@pytest.mark.parametrize("total_program_days", [30, 75, 120, 365])
+def test_time_progress_derived_from_goal_timeline(total_program_days):
+    from app.services.analytics import compute_time_progress_percent
+
+    days_elapsed = 3
+    expected = min(100.0, days_elapsed / total_program_days * 100)
+    assert compute_time_progress_percent(days_elapsed, total_program_days) == expected
+
+
+def test_journey_progress_body_outcome_can_exceed_execution():
+    from app.services.analytics import compute_journey_progress_percent
+
+    overall = compute_journey_progress_percent(
+        outcome_percent=25.0,
+        execution_adherence=90.0,
+        time_progress=4.0,
+        days_elapsed=3,
+    )
+    assert overall == 25.0
+
+
+def test_journey_progress_without_deadline_uses_outcome_only():
+    from app.services.analytics import compute_journey_progress_percent
+
+    overall = compute_journey_progress_percent(
+        outcome_percent=0.0,
+        execution_adherence=100.0,
+        time_progress=None,
+        days_elapsed=3,
+    )
+    assert overall == 0.0
+
+    overall_with_body = compute_journey_progress_percent(
+        outcome_percent=12.5,
+        execution_adherence=100.0,
+        time_progress=None,
+        days_elapsed=3,
+    )
+    assert overall_with_body == 12.5

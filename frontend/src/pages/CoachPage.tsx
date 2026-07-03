@@ -248,7 +248,7 @@ export function CoachPage() {
     <div className="space-y-6">
       <ScrollReveal animation="fade-up">
         <div className="flex flex-col gap-4">
-          <PageHeader title="AI Coach" subtitle="Personalized feedback powered by Gemini" />
+          <PageHeader title="AI Coach" subtitle="Personalized feedback powered by FitAI" />
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="space-y-1.5">

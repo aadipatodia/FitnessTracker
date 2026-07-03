@@ -110,6 +110,8 @@ class GoalFeasibilityResponse(BaseModel):
     projected_lift: Optional[float] = None
     target_calories: Optional[int] = None
     target_protein: Optional[int] = None
+    recommended_weeks: Optional[int] = None
+    recommended_target_date: Optional[date] = None
 
 
 class GoalResponse(BaseModel):

@@ -330,6 +330,8 @@ export interface GoalFeasibility {
   projected_lift?: number
   target_calories?: number
   target_protein?: number
+  recommended_weeks?: number
+  recommended_target_date?: string
 }
 
 export interface SetCreate {

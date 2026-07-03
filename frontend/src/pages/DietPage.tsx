@@ -83,7 +83,7 @@ export function DietPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Diet Log" subtitle="Type what you ate — AI estimates the macros" />
+      <PageHeader title="Diet Log" subtitle="Type what you ate — FitAI estimates the macros" />
 
       <ScrollReveal animation="blur-up">
         <Card>
@@ -156,7 +156,7 @@ export function DietPage() {
                 rows={3}
               />
               <p className="text-meta">
-                Gemini estimates calories, macros, and fibre from your description.
+                FitAI estimates calories, macros, and fibre from your description.
               </p>
             </div>
             <Button type="submit" disabled={saving || !foodInput.trim()} className="w-full sm:w-auto">

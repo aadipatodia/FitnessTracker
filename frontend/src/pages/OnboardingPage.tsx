@@ -209,8 +209,11 @@ export function OnboardingPage() {
     }
   }, [step, planInputKey, planAnalyzed])
 
-  const effectiveTargetDate = targetDate || parsedGoalDate || undefined
-  const weeksUntilDeadline = effectiveTargetDate ? weeksUntil(effectiveTargetDate) : 0
+  const effectiveTargetDate =
+    targetDate || parsedGoalDate || feasibility?.recommended_target_date || undefined
+  const weeksUntilDeadline = effectiveTargetDate
+    ? weeksUntil(effectiveTargetDate)
+    : (feasibility?.recommended_weeks ?? 0)
 
   const hasAssessment = feasibility != null && (
     feasibility.headline.length > 0 ||
@@ -246,6 +249,9 @@ export function OnboardingPage() {
       setPlanAnalyzed(true)
       setAcknowledgedExtreme(false)
       if (!targetDate && parsedGoalDate) setTargetDate(parsedGoalDate)
+      if (!targetDate && !parsedGoalDate && result.recommended_target_date) {
+        setTargetDate(result.recommended_target_date)
+      }
       if (result.target_calories) setTargetCalories(String(result.target_calories))
       if (result.target_protein) setTargetProtein(String(result.target_protein))
       return result
@@ -300,7 +306,7 @@ export function OnboardingPage() {
         target_weight_lifted: targetLift ? parseFloat(targetLift) : undefined,
         target_calories: targetCalories ? parseInt(targetCalories) : undefined,
         target_protein: targetProtein ? parseInt(targetProtein) : undefined,
-        target_date: effectiveTargetDate,
+        target_date: effectiveTargetDate || assessment?.recommended_target_date,
       })
       navigate('/')
     } catch (err) {
