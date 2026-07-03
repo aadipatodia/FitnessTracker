@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -67,10 +67,11 @@ def _delete_existing_insights(
 
 @router.get("/dashboard", response_model=DashboardStats)
 def dashboard(
+    client_datetime: Optional[datetime] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    stats = get_dashboard_stats(db, current_user.id)
+    stats = get_dashboard_stats(db, current_user.id, client_datetime=client_datetime)
     log_action(
         current_user,
         "viewed dashboard",

@@ -90,7 +90,6 @@ const BREAKDOWN_LABELS: { key: keyof ProgressBreakdown; label: string; icon: Rea
   { key: 'nutrition', label: 'Nutrition', icon: <Beef className="h-4 w-4" /> },
   { key: 'workouts', label: 'Workouts', icon: <Dumbbell className="h-4 w-4" /> },
   { key: 'recovery', label: 'Recovery', icon: <Heart className="h-4 w-4" /> },
-  { key: 'body_metrics', label: 'Body metrics', icon: <Scale className="h-4 w-4" /> },
   { key: 'strength', label: 'Strength', icon: <Dumbbell className="h-4 w-4" /> },
 ]
 

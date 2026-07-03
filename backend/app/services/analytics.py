@@ -460,7 +460,6 @@ def calculate_overall_progress(
     outcome_percent = body_percent
 
     breakdown = ProgressBreakdown(
-        body_metrics=body_percent if goal.goal_type.value != "increase_strength" else None,
         daily_routine=routine_percent,
         nutrition=nutrition_percent,
         workouts=workout_percent,
@@ -506,7 +505,14 @@ def calculate_overall_progress(
     }
 
 
-def get_dashboard_stats(db: Session, user_id: int) -> DashboardStats:
+def get_dashboard_stats(
+    db: Session,
+    user_id: int,
+    client_datetime: datetime | None = None,
+) -> DashboardStats:
+    date_ctx = resolve_analysis_dates(date.today(), client_datetime)
+    stats_through = date.fromisoformat(date_ctx["stats_through_date"])
+
     goal = get_active_goal(db, user_id)
     latest_metric = (
         db.query(BodyMetric)
@@ -514,9 +520,17 @@ def get_dashboard_stats(db: Session, user_id: int) -> DashboardStats:
         .order_by(desc(BodyMetric.recorded_date))
         .first()
     )
+    progress_metric = (
+        db.query(BodyMetric)
+        .filter(BodyMetric.user_id == user_id, BodyMetric.recorded_date <= stats_through)
+        .order_by(desc(BodyMetric.recorded_date))
+        .first()
+    )
     nutrition = get_today_nutrition(db, user_id)
     burn = get_calorie_burn_breakdown(db, user_id, date.today())
-    progress_data = calculate_overall_progress(db, user_id, goal, latest_metric)
+    progress_data = calculate_overall_progress(
+        db, user_id, goal, progress_metric or latest_metric, stats_through
+    )
 
     goal_response = None
     if goal:

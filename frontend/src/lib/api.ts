@@ -178,7 +178,8 @@ class ApiClient {
 
   // Coach
   getDashboard() {
-    return this.request<DashboardStats>('/coach/dashboard')
+    const params = new URLSearchParams({ client_datetime: new Date().toISOString() })
+    return this.request<DashboardStats>(`/coach/dashboard?${params}`)
   }
 
   getCharts(days = 30) {
