@@ -34,25 +34,6 @@ class Token(BaseModel):
     user: UserResponse
 
 
-class PasswordResetRequest(BaseModel):
-    email: EmailStr
-
-
-class PasswordResetConfirm(BaseModel):
-    email: EmailStr
-    reset_token: str
-    new_password: str = Field(min_length=6)
-
-
-class PasswordResetRequestResponse(BaseModel):
-    message: str
-    reset_token: Optional[str] = None
-
-
-class MessageResponse(BaseModel):
-    message: str
-
-
 # Goals
 class GoalCreate(BaseModel):
     goal_type: str

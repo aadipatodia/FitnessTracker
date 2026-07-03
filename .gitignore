@@ -6,6 +6,8 @@ backend/.env
 backend/uploads/
 backend/logs/
 backend/dev_credentials.txt
+frontend/.env
+frontend/.env.local
 logs/
 __pycache__/
 *.pyc

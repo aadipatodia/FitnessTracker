@@ -68,9 +68,6 @@ export function LoginPage() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign in'}
               </Button>
-              <Button type="button" variant="outline" className="w-full" onClick={() => navigate('/reset-password')}>
-                Reset password
-              </Button>
             </form>
             <p className="mt-5 text-center text-meta">
               Don't have an account?{' '}

@@ -67,20 +67,6 @@ class ApiClient {
     return this.request<User>('/auth/me')
   }
 
-  requestPasswordReset(email: string) {
-    return this.request<PasswordResetRequestResponse>('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    })
-  }
-
-  resetPassword(data: { email: string; reset_token: string; new_password: string }) {
-    return this.request<{ message: string }>('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
   // Goals
   createGoal(data: GoalCreate) {
     return this.request<Goal>('/goals', { method: 'POST', body: JSON.stringify(data) })
@@ -250,11 +236,6 @@ export interface AuthResponse {
   access_token: string
   token_type: string
   user: User
-}
-
-export interface PasswordResetRequestResponse {
-  message: string
-  reset_token?: string
 }
 
 export interface Goal {

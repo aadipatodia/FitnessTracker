@@ -68,23 +68,3 @@ def get_current_user(
     if user is None:
         raise _unauthorized(f"User not found for token (id={user_id_int})")
     return user
-
-
-def create_password_reset_token(user_id: int) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=15)
-    return jwt.encode(
-        {"sub": str(user_id), "type": "password_reset", "exp": expire},
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM,
-    )
-
-
-def verify_password_reset_token(token: str) -> Optional[int]:
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        if payload.get("type") != "password_reset":
-            return None
-        user_id = payload.get("sub")
-        return int(user_id) if user_id is not None else None
-    except (JWTError, ValueError, TypeError):
-        return None
