@@ -143,6 +143,7 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
 
   const currentWeight = stats?.current_weight ?? goal.current_weight
   const currentBodyFat = stats?.current_body_fat ?? goal.current_body_fat
+  const usesJourneyProgress = goal.current_body_fat != null && goal.target_body_fat != null
 
   return (
     <Card className="border-primary/25">
@@ -194,12 +195,12 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
             {stats?.days_elapsed != null && stats?.total_program_days != null && (
               <p className="text-sm text-secondary-foreground">
                 Day {stats.days_elapsed} of {stats.total_program_days}
-                {stats.expected_progress_percent != null && (
+                {usesJourneyProgress && stats.expected_progress_percent != null && (
                   <> · expected pace {stats.expected_progress_percent}%</>
                 )}
               </p>
             )}
-            {statusInfo && (
+            {usesJourneyProgress && statusInfo && (
               <div className={`flex items-center gap-2 text-sm font-medium ${statusInfo.className}`}>
                 {statusInfo.icon}
                 {statusInfo.label}
@@ -219,7 +220,7 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
               style={{ width: `${Math.min(100, progress)}%` }}
             />
           </div>
-          {stats?.expected_progress_percent != null && goal.target_date && (
+          {usesJourneyProgress && stats?.expected_progress_percent != null && goal.target_date && (
             <div className="relative mt-1 h-1">
               <div
                 className="absolute top-0 h-2 w-0.5 bg-secondary-foreground/50"
@@ -229,8 +230,9 @@ export function GoalSection({ stats }: { stats: DashboardStats | null }) {
             </div>
           )}
           <p className="mt-2 text-sm text-secondary-foreground">
-            Journey completion toward your deadline — time elapsed × daily execution, plus any body metric gains.
-            Breakdown cards below show how well you&apos;re executing each area.
+            {usesJourneyProgress
+              ? "Journey completion toward your deadline — time elapsed × daily execution, plus any body fat progress. Breakdown cards below show how well you're executing each area."
+              : 'Weighted average of your daily execution areas (and weight or strength progress when tracked). Breakdown cards below show each area.'}
           </p>
         </div>
 

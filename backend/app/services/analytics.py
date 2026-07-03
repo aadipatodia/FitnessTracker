@@ -38,6 +38,11 @@ DEADLINE_PACE_BUFFER = 5  # percentage points ahead/behind threshold
 ANALYSIS_CUTOFF_HOUR = 19  # include today's stats only from 7pm onward
 
 
+def goal_tracks_body_fat(goal: FitnessGoal) -> bool:
+    """True when the user set starting and target body fat on their goal."""
+    return bool(goal.current_body_fat and goal.target_body_fat)
+
+
 def compute_time_progress_percent(days_elapsed: int, total_program_days: int) -> float:
     """Percent of the user's program timeline elapsed (goal start → target date)."""
     if total_program_days <= 0:
@@ -228,7 +233,7 @@ def calculate_goal_progress(goal: FitnessGoal | None, latest_metric: BodyMetric 
     if not goal:
         return 0.0
 
-    if goal.goal_type.value == "reduce_body_fat" and goal.target_body_fat and goal.current_body_fat:
+    if goal.target_body_fat and goal.current_body_fat:
         current = latest_metric.body_fat_percent if latest_metric and latest_metric.body_fat_percent else goal.current_body_fat
         total = goal.current_body_fat - goal.target_body_fat
         if total <= 0:
@@ -392,6 +397,33 @@ def compute_journey_progress_percent(
     return round(max(0, min(100, overall)), 1)
 
 
+def compute_composite_progress_percent(
+    body_percent: float | None,
+    routine_percent: float | None,
+    nutrition_percent: float | None,
+    workout_percent: float | None,
+    recovery_percent: float | None,
+) -> float:
+    """Weighted average of execution areas and any measurable body/strength outcome."""
+    components: dict[str, tuple[float, float]] = {}
+    if body_percent is not None:
+        components["body_metrics"] = (body_percent, PROGRESS_WEIGHTS["body_metrics"])
+    if routine_percent is not None:
+        components["daily_routine"] = (routine_percent, PROGRESS_WEIGHTS["daily_routine"])
+    if nutrition_percent is not None:
+        components["nutrition"] = (nutrition_percent, PROGRESS_WEIGHTS["nutrition"])
+    if workout_percent is not None:
+        components["workouts"] = (workout_percent, PROGRESS_WEIGHTS["workouts"])
+    if recovery_percent is not None:
+        components["recovery"] = (recovery_percent, PROGRESS_WEIGHTS["recovery"])
+
+    if not components:
+        return 0.0
+
+    total_weight = sum(w for _, w in components.values())
+    return round(sum(v * w / total_weight for v, w in components.values()), 1)
+
+
 def calculate_overall_progress(
     db: Session,
     user_id: int,
@@ -473,26 +505,38 @@ def calculate_overall_progress(
     deadline_status = "no_deadline"
     time_progress = None
 
+    use_journey_progress = goal_tracks_body_fat(goal)
+
     if target_date and target_date >= goal_start:
         total_program_days = (target_date - goal_start).days + 1
-        time_progress = compute_time_progress_percent(days_elapsed, total_program_days)
-        expected_progress_percent = round(time_progress, 1)
+        if use_journey_progress:
+            time_progress = compute_time_progress_percent(days_elapsed, total_program_days)
+            expected_progress_percent = round(time_progress, 1)
 
-    overall_percent = compute_journey_progress_percent(
-        outcome_percent=outcome_percent,
-        execution_adherence=execution_adherence,
-        time_progress=time_progress,
-        days_elapsed=days_elapsed,
-    )
+    if use_journey_progress:
+        overall_percent = compute_journey_progress_percent(
+            outcome_percent=outcome_percent,
+            execution_adherence=execution_adherence,
+            time_progress=time_progress,
+            days_elapsed=days_elapsed,
+        )
 
-    if time_progress is not None:
-        gap = overall_percent - expected_progress_percent
-        if gap >= DEADLINE_PACE_BUFFER:
-            deadline_status = "ahead"
-        elif gap <= -DEADLINE_PACE_BUFFER:
-            deadline_status = "behind"
-        else:
-            deadline_status = "on_track"
+        if time_progress is not None:
+            gap = overall_percent - expected_progress_percent
+            if gap >= DEADLINE_PACE_BUFFER:
+                deadline_status = "ahead"
+            elif gap <= -DEADLINE_PACE_BUFFER:
+                deadline_status = "behind"
+            else:
+                deadline_status = "on_track"
+    else:
+        overall_percent = compute_composite_progress_percent(
+            body_percent=body_percent,
+            routine_percent=routine_percent,
+            nutrition_percent=nutrition_percent,
+            workout_percent=workout_percent,
+            recovery_percent=recovery_percent,
+        )
 
     return {
         "overall_percent": overall_percent,

@@ -57,6 +57,15 @@ def test_body_fat_progress_at_target():
     assert calculate_goal_progress(goal, _metric(body_fat_percent=12.0)) == 100.0
 
 
+def test_body_fat_progress_for_recomposition_goal():
+    goal = _goal(
+        goal_type=SimpleNamespace(value="lose_fat_gain_muscle"),
+        target_body_fat=12.0,
+        current_body_fat=20.0,
+    )
+    assert calculate_goal_progress(goal, _metric(body_fat_percent=16.0)) == 50.0
+
+
 def test_weight_progress():
     goal = _goal(
         goal_type=SimpleNamespace(value="lose_fat_gain_muscle"),
@@ -189,3 +198,25 @@ def test_journey_progress_without_deadline_uses_outcome_only():
         days_elapsed=3,
     )
     assert overall_with_body == 12.5
+
+
+def test_composite_progress_without_body_fat_tracking():
+    from app.services.analytics import compute_composite_progress_percent
+
+    overall = compute_composite_progress_percent(
+        body_percent=None,
+        routine_percent=91.7,
+        nutrition_percent=100.0,
+        workout_percent=100.0,
+        recovery_percent=89.3,
+    )
+    # Weighted average of execution areas only (no body_metrics weight)
+    assert overall == round((91.7 * 0.25 + 100 * 0.20 + 100 * 0.20 + 89.3 * 0.10) / 0.75, 1)
+
+
+def test_goal_tracks_body_fat():
+    from app.services.analytics import goal_tracks_body_fat
+
+    assert goal_tracks_body_fat(_goal(current_body_fat=20.0, target_body_fat=12.0)) is True
+    assert goal_tracks_body_fat(_goal(current_body_fat=20.0, target_body_fat=None)) is False
+    assert goal_tracks_body_fat(_goal(current_body_fat=None, target_body_fat=12.0)) is False
