@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.analytics import (
+    build_exercise_progress_comparisons,
     calculate_goal_progress,
     calculate_strength_progress,
     DEADLINE_PACE_BUFFER,
@@ -31,8 +32,11 @@ def _metric(**kwargs):
     )
 
 
-def _workout(exercises):
-    return SimpleNamespace(exercises=exercises)
+def _workout(exercises, workout_date=None):
+    return SimpleNamespace(
+        exercises=exercises,
+        workout_date=workout_date or date(2026, 3, 1),
+    )
 
 
 def _exercise(name, sets):
@@ -95,6 +99,41 @@ def test_strength_progress_with_lift():
     workouts = [_workout([_exercise("Bench Press", [(85, 5)])])]
     # start assumed 70kg (70% of 100), current 85 -> (85-70)/(100-70) = 50%
     assert calculate_strength_progress(goal, workouts) == 50.0
+
+
+def test_exercise_progress_comparisons():
+    workouts = [
+        _workout([_exercise("Deadlift", [(80, 3)])], date(2026, 3, 1)),
+        _workout([_exercise("Deadlift", [(80, 4)])], date(2026, 3, 8)),
+    ]
+    comparisons = build_exercise_progress_comparisons(workouts)
+    assert len(comparisons) == 1
+    deadlift = comparisons[0]
+    assert deadlift["exercise"] == "Deadlift"
+    assert deadlift["previous_session"] == {"date": "2026-03-01", "weight_kg": 80, "reps": 3}
+    assert deadlift["latest_session"] == {"date": "2026-03-08", "weight_kg": 80, "reps": 4}
+    assert deadlift["sessions_count"] == 2
+    assert "first_session" not in deadlift
+
+
+def test_exercise_progress_includes_first_session_when_more_than_two():
+    workouts = [
+        _workout([_exercise("Squat", [(60, 5)])], date(2026, 2, 1)),
+        _workout([_exercise("Squat", [(70, 5)])], date(2026, 2, 15)),
+        _workout([_exercise("Squat", [(80, 5)])], date(2026, 3, 1)),
+    ]
+    comparisons = build_exercise_progress_comparisons(workouts)
+    squat = comparisons[0]
+    assert squat["first_session"] == {"date": "2026-02-01", "weight_kg": 60, "reps": 5}
+    assert squat["previous_session"]["weight_kg"] == 70
+    assert squat["latest_session"]["weight_kg"] == 80
+
+
+def test_exercise_progress_skips_single_session_exercises():
+    workouts = [
+        _workout([_exercise("Bench Press", [(40, 10)])], date(2026, 3, 1)),
+    ]
+    assert build_exercise_progress_comparisons(workouts) == []
 
 
 def test_deadline_pace_buffer_is_reasonable():

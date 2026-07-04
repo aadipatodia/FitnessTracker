@@ -280,7 +280,13 @@ Return ONLY valid JSON (no markdown):
 
 Insight type MUST be one of: daily, weekly, progression, nutrition, goal_estimate.
 
-Cover: current progress vs targets; if no deadline, a recommended timeline with goal_completion_weeks; if a deadline exists, whether they are on track, weekly rate needed to hit it; calorie/protein adherence including workout burn totals; and 2-3 specific adjustments (training, nutrition, recovery). Be concrete with numbers."""
+WORKOUT PROGRESS RULES:
+- Use goal_progress.training.exercise_progress to compare the same exercise across sessions (previous_session vs latest_session; first_session when present).
+- In the progression insight, cite concrete before/after numbers, e.g. "Last deadlift: 80 kg × 3 reps → now 80 kg × 4 reps".
+- Note weight increases, rep increases at the same weight, plateaus, or regressions. Prioritize the user's target exercise when set on the goal.
+- If exercise_progress is empty, say no repeat exercises logged yet to compare.
+
+Cover: current progress vs targets; if no deadline, a recommended timeline with goal_completion_weeks; if a deadline exists, whether they are on track, weekly rate needed to hit it; calorie/protein adherence including workout burn totals; workout/strength progression from exercise_progress; and 2-3 specific adjustments (training, nutrition, recovery). Be concrete with numbers."""
     elif analysis_type == "weekly":
         prompt = f"""You are an expert fitness coach. Analyze the user's week using the pre-computed weekly_summary (compact daily rollups — do NOT ask for more data).
 

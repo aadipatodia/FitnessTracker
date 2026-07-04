@@ -774,6 +774,53 @@ def _max_weight_by_exercise(workouts: list[Workout]) -> dict[str, float]:
     return peaks
 
 
+def _best_set_for_exercise(sets: list[ExerciseSet]) -> tuple[float | None, int | None]:
+    """Return the top working set (heaviest weight, then most reps at that weight)."""
+    valid = [(s.weight_kg, s.reps) for s in sets if s.weight_kg or s.reps]
+    if not valid:
+        return None, None
+    weight, reps = max(valid, key=lambda pair: (pair[0] or 0, pair[1] or 0))
+    return weight, reps
+
+
+def build_exercise_progress_comparisons(workouts: list[Workout]) -> list[dict]:
+    """
+    Compare the same exercise across consecutive workout sessions since goal start.
+    Each entry contrasts the previous session's best set with the latest session's.
+    """
+    sessions_by_exercise: dict[str, list[dict]] = {}
+    for workout in sorted(workouts, key=lambda w: w.workout_date):
+        for ex in workout.exercises:
+            weight, reps = _best_set_for_exercise(ex.sets)
+            if not weight and not reps:
+                continue
+            sessions_by_exercise.setdefault(ex.exercise_name, []).append({
+                "date": str(workout.workout_date),
+                "weight_kg": weight,
+                "reps": reps,
+            })
+
+    comparisons: list[dict] = []
+    for exercise, sessions in sessions_by_exercise.items():
+        if len(sessions) < 2:
+            continue
+        previous = sessions[-2]
+        latest = sessions[-1]
+        entry: dict = {
+            "exercise": exercise,
+            "previous_session": previous,
+            "latest_session": latest,
+            "sessions_count": len(sessions),
+        }
+        first = sessions[0]
+        if first["date"] != previous["date"]:
+            entry["first_session"] = first
+        comparisons.append(entry)
+
+    comparisons.sort(key=lambda c: c["latest_session"]["date"], reverse=True)
+    return comparisons
+
+
 def build_weekly_coaching_summary(db: Session, user_id: int, end_date: date) -> dict:
     """Compact 7-day rollup for AI — avoids sending raw workout logs."""
     start_date = end_date - timedelta(days=6)
@@ -940,11 +987,13 @@ def build_goal_progress_summary(db: Session, user_id: int, as_of_date: date) -> 
 
     workouts = (
         db.query(Workout)
+        .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
         .filter(
             Workout.user_id == user_id,
             Workout.workout_date >= goal_start,
             Workout.workout_date <= as_of_date,
         )
+        .order_by(Workout.workout_date)
         .all()
     )
     weeks_elapsed = max(1, ((as_of_date - goal_start).days + 1) / 7)
@@ -1017,6 +1066,7 @@ def build_goal_progress_summary(db: Session, user_id: int, as_of_date: date) -> 
             "workout_streak": calculate_workout_streak(db, user_id),
             "target_lift_peak_kg": target_lift_peak,
             "target_lift_goal_kg": goal.target_weight_lifted,
+            "exercise_progress": build_exercise_progress_comparisons(workouts),
         },
         "nutrition": {
             "days_logged": protein_days,
