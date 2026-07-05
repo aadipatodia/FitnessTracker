@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.exercise_progress import ExerciseProgressSummary
@@ -22,7 +23,6 @@ from app.services.analytics import (
     _resolve_next_session_target,
     _rep_range_for_goal,
     build_exercise_assessments,
-    build_exercise_history_summaries,
     get_active_goal,
 )
 
@@ -159,7 +159,11 @@ def _apply_sessions_to_row(
         row.trend = "new"
 
 
-def _get_or_create_row(db: Session, user_id: int, exercise_key: str) -> ExerciseProgressSummary:
+def _find_progress_row(
+    db: Session,
+    user_id: int,
+    exercise_key: str,
+) -> ExerciseProgressSummary | None:
     row = (
         db.query(ExerciseProgressSummary)
         .filter(
@@ -170,8 +174,23 @@ def _get_or_create_row(db: Session, user_id: int, exercise_key: str) -> Exercise
     )
     if row:
         return row
+    for pending in db.new:
+        if (
+            isinstance(pending, ExerciseProgressSummary)
+            and pending.user_id == user_id
+            and pending.exercise_key == exercise_key
+        ):
+            return pending
+    return None
+
+
+def _get_or_create_row(db: Session, user_id: int, exercise_key: str) -> ExerciseProgressSummary:
+    row = _find_progress_row(db, user_id, exercise_key)
+    if row:
+        return row
     row = ExerciseProgressSummary(user_id=user_id, exercise_key=exercise_key, exercise_name=exercise_key)
     db.add(row)
+    db.flush()
     return row
 
 
@@ -180,14 +199,7 @@ def resync_exercise_summary(db: Session, user_id: int, exercise_key: str) -> Exe
     workouts = _load_workouts_for_exercise(db, user_id, exercise_key)
     sessions = _sessions_for_exercise_key(workouts, exercise_key)
     if not sessions:
-        existing = (
-            db.query(ExerciseProgressSummary)
-            .filter(
-                ExerciseProgressSummary.user_id == user_id,
-                ExerciseProgressSummary.exercise_key == exercise_key,
-            )
-            .first()
-        )
+        existing = _find_progress_row(db, user_id, exercise_key)
         if existing:
             db.delete(existing)
         return None
@@ -252,14 +264,7 @@ def apply_ai_targets(
     history_summaries = history_summaries or {}
     for exercise_name, target in targets_by_exercise.items():
         key = _normalize_exercise_key(exercise_name)
-        row = (
-            db.query(ExerciseProgressSummary)
-            .filter(
-                ExerciseProgressSummary.user_id == user_id,
-                ExerciseProgressSummary.exercise_key == key,
-            )
-            .first()
-        )
+        row = _find_progress_row(db, user_id, key)
         if not row:
             continue
         row.next_weight_kg = target.get("next_weight_kg")
@@ -365,15 +370,12 @@ async def refresh_ai_targets_for_exercises(
 
     goal = get_active_goal(db, user_id)
     rows: list[ExerciseProgressSummary] = []
+    seen: set[str] = set()
     for key in exercise_keys:
-        row = (
-            db.query(ExerciseProgressSummary)
-            .filter(
-                ExerciseProgressSummary.user_id == user_id,
-                ExerciseProgressSummary.exercise_key == key,
-            )
-            .first()
-        )
+        if key in seen:
+            continue
+        seen.add(key)
+        row = _find_progress_row(db, user_id, key)
         if row and row.sessions_count > 0:
             rows.append(row)
 
@@ -408,8 +410,30 @@ async def ensure_progress_current(
     await refresh_ai_targets_for_exercises(db, user_id, keys)
 
 
+def _unique_exercise_keys(workouts: list[Workout]) -> list[str]:
+    keys: list[str] = []
+    seen: set[str] = set()
+    for workout in workouts:
+        for ex in workout.exercises:
+            key = _normalize_exercise_key(ex.exercise_name)
+            if key in seen:
+                continue
+            seen.add(key)
+            keys.append(key)
+    return keys
+
+
 def bootstrap_user_cache(db: Session, user_id: int) -> list[str]:
     """One-time backfill: build summaries for all exercises from existing workouts."""
+    existing = (
+        db.query(ExerciseProgressSummary.id)
+        .filter(ExerciseProgressSummary.user_id == user_id)
+        .limit(1)
+        .first()
+    )
+    if existing:
+        return []
+
     workouts = (
         db.query(Workout)
         .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
@@ -417,13 +441,15 @@ def bootstrap_user_cache(db: Session, user_id: int) -> list[str]:
         .order_by(Workout.workout_date)
         .all()
     )
-    histories = build_exercise_history_summaries(workouts)
     keys: list[str] = []
-    for exercise_name in histories:
-        key = _normalize_exercise_key(exercise_name)
-        keys.append(key)
-        resync_exercise_summary(db, user_id, key)
-    db.commit()
+    for key in _unique_exercise_keys(workouts):
+        if resync_exercise_summary(db, user_id, key):
+            keys.append(key)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return []
     return keys
 
 

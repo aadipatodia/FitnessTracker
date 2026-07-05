@@ -83,3 +83,18 @@ def test_compact_payload_limits_recent_sessions():
 
 def test_normalize_exercise_key():
     assert _normalize_exercise_key("  Deadlift ") == "deadlift"
+
+
+def test_unique_exercise_keys_dedupes_case_variants():
+    from types import SimpleNamespace
+    from app.services.exercise_progress_cache import _unique_exercise_keys
+
+    workout = SimpleNamespace(
+        exercises=[
+            SimpleNamespace(exercise_name="Bench Press"),
+            SimpleNamespace(exercise_name="bench press"),
+            SimpleNamespace(exercise_name="Squat"),
+        ],
+    )
+    keys = _unique_exercise_keys([workout])
+    assert keys == ["bench press", "squat"]
