@@ -484,10 +484,29 @@ export interface ChartDataPoint {
   label?: string
 }
 
+export interface ExerciseAssessment {
+  exercise: string
+  current_date: string
+  current_weight_kg: number | null
+  current_reps: number | null
+  previous_weight_kg: number | null
+  previous_reps: number | null
+  trend: 'improving' | 'plateau' | 'declining' | 'new'
+  sessions_count: number
+  status_summary: string
+  next_weight_kg: number | null
+  next_reps: number | null
+  next_session_summary: string
+  goal_note: string | null
+  is_goal_exercise: boolean
+  goal_lift_progress_percent: number | null
+}
+
 export interface DashboardCharts {
   weight_trend: ChartDataPoint[]
   body_fat_trend: ChartDataPoint[]
   strength_progression: { date: string; exercise: string; max_weight: number }[]
+  exercise_assessments: ExerciseAssessment[]
   protein_intake: ChartDataPoint[]
   calories_intake: ChartDataPoint[]
 }

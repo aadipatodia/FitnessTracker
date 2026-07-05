@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+import math
 
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session, joinedload
@@ -10,7 +11,16 @@ from app.models.body import BodyMetric
 from app.models.recovery import RecoveryLog
 from app.models.activity import ActivityLog, ActivityCategory
 from app.models.checkpoint import Checkpoint, CheckpointCompletion
-from app.schemas import DashboardStats, DashboardCharts, ChartDataPoint, StrengthProgressPoint, GoalResponse, ProgressBreakdown
+from app.models.goal import GoalType
+from app.schemas import (
+    DashboardStats,
+    DashboardCharts,
+    ChartDataPoint,
+    StrengthProgressPoint,
+    ExerciseAssessment,
+    GoalResponse,
+    ProgressBreakdown,
+)
 from app.services.workout_calories import estimate_minimum_workout_calories, estimate_workout_calories
 from app.services.activity_calories import (
     estimate_everyday_movement_burn,
@@ -680,10 +690,22 @@ def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Dashboard
     protein_intake = [ChartDataPoint(date=d, value=v) for d, v in sorted(protein_by_date.items())]
     calories_intake = [ChartDataPoint(date=d, value=v) for d, v in sorted(calories_by_date.items())]
 
+    workouts_q = (
+        db.query(Workout)
+        .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
+        .filter(Workout.user_id == user_id)
+    )
+    if start_date:
+        workouts_q = workouts_q.filter(Workout.workout_date >= start_date)
+    workouts = workouts_q.order_by(Workout.workout_date).all()
+    goal = get_active_goal(db, user_id)
+    exercise_assessments = build_exercise_assessments(workouts, goal)
+
     return DashboardCharts(
         weight_trend=weight_trend,
         body_fat_trend=body_fat_trend,
         strength_progression=strength_progression,
+        exercise_assessments=exercise_assessments,
         protein_intake=protein_intake,
         calories_intake=calories_intake,
     )
@@ -819,6 +841,242 @@ def build_exercise_progress_comparisons(workouts: list[Workout]) -> list[dict]:
 
     comparisons.sort(key=lambda c: c["latest_session"]["date"], reverse=True)
     return comparisons
+
+
+WEIGHT_INCREMENT_KG = 2.5
+
+
+def _rep_range_for_goal(goal: FitnessGoal | None) -> tuple[int, int]:
+    if not goal:
+        return 8, 12
+    if goal.goal_type == GoalType.INCREASE_STRENGTH:
+        return 4, 6
+    if goal.goal_type == GoalType.LOSE_FAT_GAIN_MUSCLE:
+        return 6, 10
+    return 8, 12
+
+
+def _round_weight(kg: float, increment: float = WEIGHT_INCREMENT_KG) -> float:
+    return round(kg / increment) * increment
+
+
+def _round_weight_up(kg: float, increment: float = WEIGHT_INCREMENT_KG) -> float:
+    return math.ceil(kg / increment) * increment
+
+
+def _format_set(weight: float | None, reps: int | None) -> str:
+    if weight and reps:
+        w = _round_weight(weight) if weight >= WEIGHT_INCREMENT_KG else weight
+        return f"{w:g} kg × {reps} reps"
+    if weight:
+        w = _round_weight(weight) if weight >= WEIGHT_INCREMENT_KG else weight
+        return f"{w:g} kg"
+    if reps:
+        return f"{reps} reps"
+    return "—"
+
+
+def _exercise_matches_goal(exercise: str, goal: FitnessGoal | None) -> bool:
+    if not goal or not goal.target_exercise:
+        return False
+    return goal.target_exercise.lower() in exercise.lower()
+
+
+def _determine_trend(
+    current: dict,
+    previous: dict | None,
+) -> str:
+    if not previous:
+        return "new"
+    cw, cr = current.get("weight_kg") or 0, current.get("reps") or 0
+    pw, pr = previous.get("weight_kg") or 0, previous.get("reps") or 0
+    if cw > pw or (cw == pw and cr > pr):
+        return "improving"
+    if cw < pw or (cw == pw and cr < pr):
+        return "declining"
+    return "plateau"
+
+
+def _goal_context_note(goal: FitnessGoal | None, exercise: str, current_weight: float | None) -> str | None:
+    if not goal:
+        return None
+    gt = goal.goal_type.value
+    if _exercise_matches_goal(exercise, goal) and goal.target_weight_lifted and current_weight:
+        start = goal.target_weight_lifted * 0.7
+        gap = goal.target_weight_lifted - start
+        pct = round(max(0, min(100, (current_weight - start) / gap * 100)), 1) if gap > 0 else 100.0
+        return (
+            f"Strength goal: {goal.target_weight_lifted:g} kg on {goal.target_exercise} "
+            f"— you're at {current_weight:g} kg ({pct:g}% of the way)."
+        )
+    if gt == GoalType.INCREASE_STRENGTH.value:
+        return "Strength goal: prioritize heavier loads in the 4–6 rep range with full recovery between sessions."
+    if gt == GoalType.LOSE_FAT_GAIN_MUSCLE.value:
+        return "Recomp goal: chase rep quality and 6–10 rep sets before aggressive weight jumps."
+    if gt == GoalType.REDUCE_BODY_FAT.value:
+        return "Fat-loss goal: maintain progressive overload with moderate weight and 8–12 controlled reps."
+    return "General fitness: steady double progression — add reps first, then small weight increases."
+
+
+def _compute_next_target(
+    current_weight: float | None,
+    current_reps: int | None,
+    previous_weight: float | None,
+    previous_reps: int | None,
+    rep_min: int,
+    rep_max: int,
+) -> tuple[float | None, int | None, str]:
+    w = current_weight or 0
+    r = current_reps or 0
+
+    if not w and not r:
+        return None, None, "Log a working set to unlock your next-session target."
+
+    if previous_weight is None:
+        target_r = max(r + 1, rep_min) if r else rep_min
+        return w or None, target_r, (
+            f"Next session: {_format_set(w or None, target_r)} — build your baseline with one more rep."
+        )
+
+    if w > (previous_weight or 0):
+        if r < rep_min:
+            return w, min(r + 1, rep_min), (
+                f"Next session: {_format_set(w, min(r + 1, rep_min))} — consolidate the weight increase."
+            )
+        if r < rep_max:
+            return w, r + 1, (
+                f"Next session: {_format_set(w, r + 1)} — add reps at this new weight before loading up."
+            )
+        new_w = _round_weight_up(w + WEIGHT_INCREMENT_KG)
+        return new_w, rep_min, (
+            f"Next session: {_format_set(new_w, rep_min)} — you hit {rep_max} reps; time for a small weight jump."
+        )
+
+    if w == (previous_weight or 0):
+        if r >= rep_max:
+            new_w = _round_weight_up(w + WEIGHT_INCREMENT_KG)
+            return new_w, rep_min, (
+                f"Next session: {_format_set(new_w, rep_min)} — top of your rep range; add {WEIGHT_INCREMENT_KG:g} kg."
+            )
+        if r > (previous_reps or 0):
+            return w, r + 1, (
+                f"Next session: {_format_set(w, r + 1)} — keep the double-progression going."
+            )
+        if r == (previous_reps or 0):
+            return w, r + 1, (
+                f"Next session: {_format_set(w, r + 1)} — break the plateau with one more rep at this weight."
+            )
+        return w, max(r, previous_reps or r), (
+            f"Next session: {_format_set(w, max(r, previous_reps or r))} — match your recent best before pushing load."
+        )
+
+    if r >= (previous_reps or 0):
+        return w, r, (
+            f"Next session: {_format_set(w, r)} — rebuild at this weight before adding load again."
+        )
+    return w, max(r, previous_reps or r), (
+        f"Next session: {_format_set(w, max(r, previous_reps or r))} — focus on rep quality and recovery."
+    )
+
+
+def _build_status_summary(
+    current: dict,
+    previous: dict | None,
+    trend: str,
+    sessions_count: int,
+) -> str:
+    current_set = _format_set(current.get("weight_kg"), current.get("reps"))
+    date_label = current["date"]
+
+    if trend == "new":
+        return (
+            f"Currently at {current_set} ({date_label}). "
+            f"First session logged in this period — establish this as your baseline."
+        )
+
+    prev_set = _format_set(previous.get("weight_kg"), previous.get("reps"))
+    if trend == "improving":
+        cw, cr = current.get("weight_kg") or 0, current.get("reps") or 0
+        pw, pr = previous.get("weight_kg") or 0, previous.get("reps") or 0
+        if cw > pw:
+            detail = f"up {cw - pw:g} kg from {prev_set}"
+        else:
+            detail = f"added {cr - pr} rep{'s' if cr - pr != 1 else ''} at the same weight"
+        return (
+            f"Currently at {current_set} ({date_label}). "
+            f"Progressive overload on track — {detail} since your last session."
+        )
+
+    if trend == "declining":
+        return (
+            f"Currently at {current_set} ({date_label}). "
+            f"Below your previous {prev_set} — prioritize sleep, nutrition, and form before pushing load."
+        )
+
+    return (
+        f"Currently at {current_set} ({date_label}). "
+        f"Held steady vs your last session ({prev_set}) across {sessions_count} logged sessions — "
+        f"time to break through with reps or a small weight increase."
+    )
+
+
+def build_exercise_assessments(
+    workouts: list[Workout],
+    goal: FitnessGoal | None,
+) -> list[ExerciseAssessment]:
+    """Per-exercise current status and next-session target aligned with goal and progressive overload."""
+    sessions_by_exercise: dict[str, list[dict]] = {}
+    for workout in sorted(workouts, key=lambda w: w.workout_date):
+        for ex in workout.exercises:
+            weight, reps = _best_set_for_exercise(ex.sets)
+            if not weight and not reps:
+                continue
+            sessions_by_exercise.setdefault(ex.exercise_name, []).append({
+                "date": str(workout.workout_date),
+                "weight_kg": weight,
+                "reps": reps,
+            })
+
+    rep_min, rep_max = _rep_range_for_goal(goal)
+    assessments: list[ExerciseAssessment] = []
+
+    for exercise in sorted(sessions_by_exercise):
+        sessions = sessions_by_exercise[exercise]
+        current = sessions[-1]
+        previous = sessions[-2] if len(sessions) >= 2 else None
+        trend = _determine_trend(current, previous)
+        cw = current.get("weight_kg")
+        cr = current.get("reps")
+        pw = previous.get("weight_kg") if previous else None
+        pr = previous.get("reps") if previous else None
+
+        next_w, next_r, next_summary = _compute_next_target(cw, cr, pw, pr, rep_min, rep_max)
+        is_goal_ex = _exercise_matches_goal(exercise, goal)
+        goal_lift_pct = None
+        if is_goal_ex and goal and goal.target_weight_lifted and cw:
+            start = goal.target_weight_lifted * 0.7
+            gap = goal.target_weight_lifted - start
+            goal_lift_pct = round(max(0, min(100, (cw - start) / gap * 100)), 1) if gap > 0 else 100.0
+
+        assessments.append(ExerciseAssessment(
+            exercise=exercise,
+            current_date=current["date"],
+            current_weight_kg=cw,
+            current_reps=cr,
+            previous_weight_kg=pw,
+            previous_reps=pr,
+            trend=trend,
+            sessions_count=len(sessions),
+            status_summary=_build_status_summary(current, previous, trend, len(sessions)),
+            next_weight_kg=next_w,
+            next_reps=next_r,
+            next_session_summary=next_summary,
+            goal_note=_goal_context_note(goal, exercise, cw),
+            is_goal_exercise=is_goal_ex,
+            goal_lift_progress_percent=goal_lift_pct,
+        ))
+
+    return assessments
 
 
 def build_weekly_coaching_summary(db: Session, user_id: int, end_date: date) -> dict:

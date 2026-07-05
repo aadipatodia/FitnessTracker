@@ -29,7 +29,7 @@ export function WorkoutGraphPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <PageHeader
           title="Workout Graph"
-          subtitle="Max weight per session for each exercise you log"
+          subtitle="Max weight per session with coaching on where you are and what to hit next"
         />
         <select
           value={days}
@@ -50,6 +50,7 @@ export function WorkoutGraphPage() {
         <ScrollReveal animation="blur-up">
           <ExerciseProgressCharts
             strengthProgression={charts?.strength_progression ?? []}
+            exerciseAssessments={charts?.exercise_assessments ?? []}
             chartHeight={280}
             emptyMessage="No workout data yet. Log a workout to see your progress graphs."
           />

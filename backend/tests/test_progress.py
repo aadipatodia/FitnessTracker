@@ -5,6 +5,7 @@ import pytest
 
 from app.services.analytics import (
     build_exercise_progress_comparisons,
+    build_exercise_assessments,
     calculate_goal_progress,
     calculate_strength_progress,
     DEADLINE_PACE_BUFFER,
@@ -134,6 +135,59 @@ def test_exercise_progress_skips_single_session_exercises():
         _workout([_exercise("Bench Press", [(40, 10)])], date(2026, 3, 1)),
     ]
     assert build_exercise_progress_comparisons(workouts) == []
+
+
+def test_exercise_assessments_includes_single_session():
+    workouts = [
+        _workout([_exercise("Bench Press", [(40, 10)])], date(2026, 3, 1)),
+    ]
+    assessments = build_exercise_assessments(workouts, None)
+    assert len(assessments) == 1
+    bench = assessments[0]
+    assert bench.exercise == "Bench Press"
+    assert bench.trend == "new"
+    assert bench.current_weight_kg == 40
+    assert bench.current_reps == 10
+    assert bench.next_reps == 11
+
+
+def test_exercise_assessments_rep_progression_target():
+    goal = _goal(goal_type=SimpleNamespace(value="increase_strength"))
+    workouts = [
+        _workout([_exercise("Deadlift", [(80, 3)])], date(2026, 3, 1)),
+        _workout([_exercise("Deadlift", [(80, 4)])], date(2026, 3, 8)),
+    ]
+    assessments = build_exercise_assessments(workouts, goal)
+    deadlift = assessments[0]
+    assert deadlift.trend == "improving"
+    assert deadlift.next_weight_kg == 80
+    assert deadlift.next_reps == 5
+
+
+def test_exercise_assessments_weight_jump_at_rep_ceiling():
+    workouts = [
+        _workout([_exercise("Squat", [(60, 11)])], date(2026, 3, 1)),
+        _workout([_exercise("Squat", [(60, 12)])], date(2026, 3, 8)),
+    ]
+    assessments = build_exercise_assessments(workouts, None)
+    squat = assessments[0]
+    assert squat.next_weight_kg == 62.5
+    assert squat.next_reps == 8
+
+
+def test_exercise_assessments_goal_exercise_note():
+    goal = _goal(
+        goal_type=SimpleNamespace(value="increase_strength"),
+        target_exercise="Bench Press",
+        target_weight_lifted=100.0,
+    )
+    workouts = [_workout([_exercise("Bench Press", [(85, 5)])])]
+    assessments = build_exercise_assessments(workouts, goal)
+    bench = assessments[0]
+    assert bench.is_goal_exercise is True
+    assert bench.goal_lift_progress_percent == 50.0
+    assert bench.goal_note is not None
+    assert "100 kg" in bench.goal_note
 
 
 def test_deadline_pace_buffer_is_reasonable():

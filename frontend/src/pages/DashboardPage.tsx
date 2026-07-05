@@ -148,6 +148,7 @@ export function DashboardPage() {
           </div>
           <ExerciseProgressCharts
             strengthProgression={charts?.strength_progression ?? []}
+            exerciseAssessments={charts?.exercise_assessments ?? []}
             chartHeight={180}
           />
         </div>

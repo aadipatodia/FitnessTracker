@@ -386,9 +386,28 @@ class StrengthProgressPoint(BaseModel):
     max_weight: float
 
 
+class ExerciseAssessment(BaseModel):
+    exercise: str
+    current_date: str
+    current_weight_kg: Optional[float] = None
+    current_reps: Optional[int] = None
+    previous_weight_kg: Optional[float] = None
+    previous_reps: Optional[int] = None
+    trend: str
+    sessions_count: int
+    status_summary: str
+    next_weight_kg: Optional[float] = None
+    next_reps: Optional[int] = None
+    next_session_summary: str
+    goal_note: Optional[str] = None
+    is_goal_exercise: bool = False
+    goal_lift_progress_percent: Optional[float] = None
+
+
 class DashboardCharts(BaseModel):
     weight_trend: list[ChartDataPoint]
     body_fat_trend: list[ChartDataPoint]
     strength_progression: list[StrengthProgressPoint]
+    exercise_assessments: list[ExerciseAssessment] = []
     protein_intake: list[ChartDataPoint]
     calories_intake: list[ChartDataPoint]
