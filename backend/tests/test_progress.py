@@ -6,6 +6,7 @@ import pytest
 from app.services.analytics import (
     build_exercise_progress_comparisons,
     build_exercise_assessments,
+    build_exercise_history_summaries,
     calculate_goal_progress,
     calculate_strength_progress,
     DEADLINE_PACE_BUFFER,
@@ -188,6 +189,40 @@ def test_exercise_assessments_goal_exercise_note():
     assert bench.goal_lift_progress_percent == 50.0
     assert bench.goal_note is not None
     assert "100 kg" in bench.goal_note
+
+
+def test_exercise_history_includes_all_sets():
+    workouts = [
+        _workout([_exercise("Chest Press", [(40, 12), (40, 10), (40, 8)])], date(2026, 3, 1)),
+        _workout([_exercise("Chest Press", [(42.5, 10), (42.5, 8)])], date(2026, 3, 8)),
+    ]
+    histories = build_exercise_history_summaries(workouts)
+    chest = histories["Chest Press"]
+    assert len(chest) == 2
+    assert len(chest[0]["sets"]) == 3
+    assert chest[0]["best_set"] == {"weight_kg": 40, "reps": 12}
+    assert chest[1]["set_count"] == 2
+
+
+def test_exercise_assessments_use_gemini_next_session():
+    workouts = [
+        _workout([_exercise("Chest Press", [(40, 12), (40, 10)])], date(2026, 3, 1)),
+    ]
+    gemini_targets = {
+        "Chest Press": {
+            "next_weight_kg": 42.5,
+            "next_reps": 10,
+            "next_session_summary": (
+                "Next session: 42.5 kg × 10 reps — your last three sets at 40 kg showed "
+                "rep drop-off; a small load increase with a solid 10-rep top set fits your trend."
+            ),
+        }
+    }
+    assessments = build_exercise_assessments(workouts, None, gemini_targets)
+    chest = assessments[0]
+    assert chest.next_weight_kg == 42.5
+    assert chest.next_reps == 10
+    assert "rep drop-off" in chest.next_session_summary
 
 
 def test_deadline_pace_buffer_is_reasonable():

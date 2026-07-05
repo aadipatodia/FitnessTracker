@@ -630,7 +630,7 @@ def get_dashboard_stats(
     )
 
 
-def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> DashboardCharts:
+async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> DashboardCharts:
     start_date = date.today() - timedelta(days=days) if days > 0 else None
 
     metrics_q = db.query(BodyMetric).filter(BodyMetric.user_id == user_id)
@@ -699,7 +699,15 @@ def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Dashboard
         workouts_q = workouts_q.filter(Workout.workout_date >= start_date)
     workouts = workouts_q.order_by(Workout.workout_date).all()
     goal = get_active_goal(db, user_id)
-    exercise_assessments = build_exercise_assessments(workouts, goal)
+    histories = build_exercise_history_summaries(workouts)
+    fallbacks = _build_fallback_next_session_targets(histories, goal)
+    from app.services.gemini import generate_exercise_next_session_targets
+    next_by_exercise = await generate_exercise_next_session_targets(
+        histories,
+        _goal_snapshot(goal),
+        fallbacks,
+    )
+    exercise_assessments = build_exercise_assessments(workouts, goal, next_by_exercise)
 
     return DashboardCharts(
         weight_trend=weight_trend,
@@ -843,6 +851,39 @@ def build_exercise_progress_comparisons(workouts: list[Workout]) -> list[dict]:
     return comparisons
 
 
+def build_exercise_history_summaries(workouts: list[Workout]) -> dict[str, list[dict]]:
+    """Full per-exercise session history with every logged set (not just peak weight)."""
+    summaries: dict[str, list[dict]] = {}
+    for workout in sorted(workouts, key=lambda w: w.workout_date):
+        for ex in workout.exercises:
+            sets: list[dict] = []
+            ordered_sets = sorted(
+                ex.sets,
+                key=lambda row: getattr(row, "set_number", 0),
+            )
+            for idx, s in enumerate(ordered_sets):
+                if not s.weight_kg and not s.reps:
+                    continue
+                sets.append({
+                    "set_number": getattr(s, "set_number", idx + 1),
+                    "weight_kg": s.weight_kg,
+                    "reps": s.reps,
+                })
+            if not sets:
+                continue
+            best_weight, best_reps = _best_set_for_exercise(ex.sets)
+            volume = sum((row.get("weight_kg") or 0) * (row.get("reps") or 0) for row in sets)
+            summaries.setdefault(ex.exercise_name, []).append({
+                "date": str(workout.workout_date),
+                "workout_name": getattr(workout, "name", None),
+                "sets": sets,
+                "best_set": {"weight_kg": best_weight, "reps": best_reps},
+                "total_volume_kg": round(volume, 1),
+                "set_count": len(sets),
+            })
+    return summaries
+
+
 WEIGHT_INCREMENT_KG = 2.5
 
 
@@ -880,6 +921,54 @@ def _exercise_matches_goal(exercise: str, goal: FitnessGoal | None) -> bool:
     if not goal or not goal.target_exercise:
         return False
     return goal.target_exercise.lower() in exercise.lower()
+
+
+def _normalize_exercise_key(name: str) -> str:
+    return name.strip().lower()
+
+
+def _resolve_next_session_target(
+    exercise: str,
+    next_session_by_exercise: dict[str, dict] | None,
+    cw: float | None,
+    cr: int | None,
+    pw: float | None,
+    pr: int | None,
+    rep_min: int,
+    rep_max: int,
+) -> tuple[float | None, int | None, str]:
+    if next_session_by_exercise:
+        for key, target in next_session_by_exercise.items():
+            if _normalize_exercise_key(key) == _normalize_exercise_key(exercise):
+                summary = target.get("next_session_summary")
+                if summary:
+                    return (
+                        target.get("next_weight_kg"),
+                        target.get("next_reps"),
+                        summary,
+                    )
+    return _compute_next_target(cw, cr, pw, pr, rep_min, rep_max)
+
+
+def _build_fallback_next_session_targets(
+    histories: dict[str, list[dict]],
+    goal: FitnessGoal | None,
+) -> dict[str, dict]:
+    rep_min, rep_max = _rep_range_for_goal(goal)
+    fallbacks: dict[str, dict] = {}
+    for exercise, sessions in histories.items():
+        current = sessions[-1]["best_set"]
+        previous = sessions[-2]["best_set"] if len(sessions) >= 2 else None
+        cw, cr = current.get("weight_kg"), current.get("reps")
+        pw = previous.get("weight_kg") if previous else None
+        pr = previous.get("reps") if previous else None
+        next_w, next_r, summary = _compute_next_target(cw, cr, pw, pr, rep_min, rep_max)
+        fallbacks[exercise] = {
+            "next_weight_kg": next_w,
+            "next_reps": next_r,
+            "next_session_summary": summary,
+        }
+    return fallbacks
 
 
 def _determine_trend(
@@ -1023,34 +1112,44 @@ def _build_status_summary(
 def build_exercise_assessments(
     workouts: list[Workout],
     goal: FitnessGoal | None,
+    next_session_by_exercise: dict[str, dict] | None = None,
 ) -> list[ExerciseAssessment]:
-    """Per-exercise current status and next-session target aligned with goal and progressive overload."""
-    sessions_by_exercise: dict[str, list[dict]] = {}
-    for workout in sorted(workouts, key=lambda w: w.workout_date):
-        for ex in workout.exercises:
-            weight, reps = _best_set_for_exercise(ex.sets)
-            if not weight and not reps:
-                continue
-            sessions_by_exercise.setdefault(ex.exercise_name, []).append({
-                "date": str(workout.workout_date),
-                "weight_kg": weight,
-                "reps": reps,
-            })
-
+    """Per-exercise current status; next-session target from Gemini when provided."""
+    histories = build_exercise_history_summaries(workouts)
     rep_min, rep_max = _rep_range_for_goal(goal)
     assessments: list[ExerciseAssessment] = []
 
-    for exercise in sorted(sessions_by_exercise):
-        sessions = sessions_by_exercise[exercise]
-        current = sessions[-1]
-        previous = sessions[-2] if len(sessions) >= 2 else None
+    for exercise in sorted(histories):
+        sessions = histories[exercise]
+        current_session = sessions[-1]
+        current = {
+            "date": current_session["date"],
+            **current_session["best_set"],
+        }
+        previous = None
+        if len(sessions) >= 2:
+            prev_session = sessions[-2]
+            previous = {
+                "date": prev_session["date"],
+                **prev_session["best_set"],
+            }
+
         trend = _determine_trend(current, previous)
         cw = current.get("weight_kg")
         cr = current.get("reps")
         pw = previous.get("weight_kg") if previous else None
         pr = previous.get("reps") if previous else None
 
-        next_w, next_r, next_summary = _compute_next_target(cw, cr, pw, pr, rep_min, rep_max)
+        next_w, next_r, next_summary = _resolve_next_session_target(
+            exercise,
+            next_session_by_exercise,
+            cw,
+            cr,
+            pw,
+            pr,
+            rep_min,
+            rep_max,
+        )
         is_goal_ex = _exercise_matches_goal(exercise, goal)
         goal_lift_pct = None
         if is_goal_ex and goal and goal.target_weight_lifted and cw:

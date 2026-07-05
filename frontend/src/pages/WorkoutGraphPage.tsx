@@ -49,8 +49,9 @@ export function WorkoutGraphPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center justify-center gap-3 h-64">
           <div className="luxury-spinner" />
+          <p className="text-sm text-muted-foreground">Analyzing your full workout history…</p>
         </div>
       ) : error ? (
         <Card>

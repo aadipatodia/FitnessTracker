@@ -111,12 +111,12 @@ def dashboard(
 
 
 @router.get("/charts", response_model=DashboardCharts)
-def charts(
+async def charts(
     days: int = 30,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    data = get_dashboard_charts(db, current_user.id, days)
+    data = await get_dashboard_charts(db, current_user.id, days)
     log_action(current_user, f"viewed progress charts ({days} days)", "charts loaded")
     return data
 

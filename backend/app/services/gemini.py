@@ -752,3 +752,84 @@ def _fallback_coaching(user_data: dict, analysis_type: str) -> dict:
         "protein_recommendation": target_protein,
         "goal_completion_weeks": weeks,
     }
+
+
+async def generate_exercise_next_session_targets(
+    exercise_histories: dict[str, list[dict]],
+    goal_snapshot: dict,
+    fallbacks: dict[str, dict],
+) -> dict[str, dict]:
+    """
+    Use Gemini to set the next-session target per exercise from full logged history
+    (every set in every session), not just peak weight.
+    """
+    if not exercise_histories:
+        return {}
+
+    user_input = {
+        "goal": goal_snapshot,
+        "exercise_histories": exercise_histories,
+    }
+
+    prompt = f"""You are an expert strength coach. For each exercise below, study the COMPLETE workout history — every set in every session (weight, reps, set order, volume trends, plateaus, and regressions). Do NOT base your recommendation on max weight alone.
+
+User goal context:
+{json.dumps(goal_snapshot, indent=2, default=str)}
+
+Full exercise histories (chronological sessions, all sets logged):
+{json.dumps(exercise_histories, indent=2, default=str)}
+
+Rules:
+- Apply progressive overload suited to the user's goal type (strength / recomp / fat loss / general fitness).
+- Consider within-session fatigue (e.g. set 1 vs set 3), not only the best single set.
+- If the user repeated the same loads across sessions, prescribe a specific breakthrough (reps, weight, or set quality).
+- If they regressed, recommend consolidation before loading again.
+- Weight jumps should be realistic (typically 2.5 kg for barbell/dumbbell compounds, smaller for isolation).
+- Each exercise MUST get a unique, specific next-session prescription — never reuse the same sentence across exercises.
+- next_session_summary: 1–2 sentences starting with "Next session:" — concrete weight × reps (and sets if helpful), plus brief coaching rationale tied to THEIR history.
+
+Return ONLY valid JSON (no markdown):
+{{
+  "targets": [
+    {{
+      "exercise": "exact exercise name from input",
+      "next_weight_kg": number or null,
+      "next_reps": number or null,
+      "next_session_summary": "string"
+    }}
+  ]
+}}
+
+Include one entry for every exercise in the input histories."""
+
+    parsed = await _generate_json_async(
+        "exercise_next_session_targets",
+        user_input,
+        prompt,
+        {"targets": [
+            {
+                "exercise": name,
+                "next_weight_kg": fb.get("next_weight_kg"),
+                "next_reps": fb.get("next_reps"),
+                "next_session_summary": fb.get("next_session_summary", ""),
+            }
+            for name, fb in fallbacks.items()
+        ]},
+    )
+
+    result: dict[str, dict] = {}
+    for entry in parsed.get("targets") or []:
+        name = entry.get("exercise")
+        if not name:
+            continue
+        result[name] = {
+            "next_weight_kg": entry.get("next_weight_kg"),
+            "next_reps": entry.get("next_reps"),
+            "next_session_summary": entry.get("next_session_summary") or fallbacks.get(name, {}).get("next_session_summary", ""),
+        }
+
+    for name, fb in fallbacks.items():
+        if name not in result:
+            result[name] = fb
+
+    return result
