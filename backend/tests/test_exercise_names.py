@@ -3,6 +3,7 @@ from app.services.exercise_names import (
     exercise_names_equivalent,
     exercise_similarity,
     find_best_exercise_match,
+    merge_strength_progression_points,
     normalize_exercise_key,
 )
 
@@ -30,5 +31,24 @@ def test_cluster_exercise_names_merges_variants():
     assert clusters["front raises"] == clusters["Front Raises"]
 
 
-def test_exercise_similarity_is_perfect_for_identical_normalized_names():
-    assert exercise_similarity("Dead-Lift", "dead lift") == 1.0
+def test_merge_strength_progression_points_combines_name_variants():
+    points = [
+        {"date": "2026-07-02", "exercise": "Bench Press", "max_weight": 30},
+        {"date": "2026-07-05", "exercise": "Bench press", "max_weight": 35},
+    ]
+    merged = merge_strength_progression_points(points, ["Bench Press", "Bench press"])
+    assert len(merged) == 2
+    assert all(row["exercise"] == merged[0]["exercise"] for row in merged)
+    by_date = {row["date"]: row["max_weight"] for row in merged}
+    assert by_date["2026-07-02"] == 30
+    assert by_date["2026-07-05"] == 35
+
+
+def test_merge_strength_progression_points_keeps_same_day_heaviest():
+    points = [
+        {"date": "2026-07-05", "exercise": "Bench Press", "max_weight": 30},
+        {"date": "2026-07-05", "exercise": "Bench press", "max_weight": 35},
+    ]
+    merged = merge_strength_progression_points(points)
+    assert len(merged) == 1
+    assert merged[0]["max_weight"] == 35

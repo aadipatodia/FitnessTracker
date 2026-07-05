@@ -12,7 +12,7 @@ const PERIOD_OPTIONS = [
 ]
 
 export function WorkoutGraphPage() {
-  const [days, setDays] = useState(365)
+  const [days, setDays] = useState(0)
   const [charts, setCharts] = useState<DashboardCharts | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

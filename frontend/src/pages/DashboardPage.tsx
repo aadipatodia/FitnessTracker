@@ -27,16 +27,22 @@ const TOOLTIP_STYLE = {
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [charts, setCharts] = useState<DashboardCharts | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [chartsLoading, setChartsLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([api.getDashboard(), api.getCharts(30)])
-      .then(([s, c]) => { setStats(s); setCharts(c) })
+    api.getDashboard()
+      .then(setStats)
       .catch(console.error)
-      .finally(() => setLoading(false))
+      .finally(() => setStatsLoading(false))
+
+    api.getCharts(30)
+      .then(setCharts)
+      .catch(console.error)
+      .finally(() => setChartsLoading(false))
   }, [])
 
-  if (loading) {
+  if (statsLoading && !stats) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="luxury-spinner" />
@@ -86,6 +92,15 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        {chartsLoading ? (
+          <>
+            <ChartSkeleton title="Weight Trend" />
+            <ChartSkeleton title="Body Fat Trend" />
+            <ChartSkeleton title="Protein Intake" />
+            <ChartSkeleton title="Calorie Intake" />
+          </>
+        ) : (
+          <>
         <ChartCard title="Weight Trend" index={0}>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={charts?.weight_trend ?? []}>
@@ -133,6 +148,8 @@ export function DashboardPage() {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
+          </>
+        )}
       </div>
 
       <ScrollReveal animation="fade-up" delay={100}>
@@ -146,14 +163,36 @@ export function DashboardPage() {
               Open workout graph →
             </Link>
           </div>
+          {chartsLoading ? (
+            <Card>
+              <CardContent className="flex items-center justify-center gap-3 py-16">
+                <div className="luxury-spinner" />
+                <p className="text-sm text-muted-foreground">Loading exercise charts…</p>
+              </CardContent>
+            </Card>
+          ) : (
           <ExerciseProgressCharts
             strengthProgression={charts?.strength_progression ?? []}
             exerciseAssessments={charts?.exercise_assessments ?? []}
             chartHeight={180}
           />
+          )}
         </div>
       </ScrollReveal>
     </div>
+  )
+}
+
+function ChartSkeleton({ title }: { title: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex items-center justify-center h-[220px]">
+        <div className="luxury-spinner" />
+      </CardContent>
+    </Card>
   )
 }
 

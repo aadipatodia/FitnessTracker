@@ -100,3 +100,35 @@ def cluster_exercise_names(
         for member in members:
             mapping[member] = canonical
     return mapping
+
+
+def merge_strength_progression_points(
+    points: list[dict[str, str | float]],
+    all_exercise_names: list[str] | None = None,
+) -> list[dict[str, str | float]]:
+    """
+    Merge chart points that share a fuzzy exercise cluster.
+
+    Same exercise logged as "Bench Press" and "Bench press" becomes one series
+    with the heaviest weight kept for each session date.
+    """
+    if not points:
+        return []
+
+    names = [str(p["exercise"]) for p in points if p.get("exercise")]
+    if all_exercise_names:
+        names = list(dict.fromkeys(names + [n for n in all_exercise_names if n]))
+    clusters = cluster_exercise_names(names)
+
+    merged: dict[tuple[str, str], float] = {}
+    for point in points:
+        exercise = str(point["exercise"])
+        canonical = clusters.get(exercise, exercise)
+        key = (str(point["date"]), canonical)
+        weight = float(point.get("max_weight") or 0)
+        merged[key] = max(merged.get(key, 0.0), weight)
+
+    return [
+        {"date": session_date, "exercise": exercise, "max_weight": weight}
+        for (session_date, exercise), weight in sorted(merged.items())
+    ]

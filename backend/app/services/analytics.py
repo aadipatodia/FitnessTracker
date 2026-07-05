@@ -321,11 +321,31 @@ def calculate_nutrition_adherence(
         return None
 
     target_protein = goal.target_protein or int((goal.current_weight or 75) * 1.8)
+    nutrition_rows = (
+        db.query(
+            DietLog.log_date,
+            func.coalesce(func.sum(DietEntry.protein_g), 0).label("protein"),
+            func.coalesce(func.sum(DietEntry.calories), 0).label("calories"),
+        )
+        .join(DietEntry, DietEntry.diet_log_id == DietLog.id)
+        .filter(
+            DietLog.user_id == user_id,
+            DietLog.log_date >= start_date,
+            DietLog.log_date <= end_date,
+        )
+        .group_by(DietLog.log_date)
+        .all()
+    )
+    nutrition_by_date = {
+        row.log_date: {"protein": float(row.protein), "calories": float(row.calories)}
+        for row in nutrition_rows
+    }
+
     logged_days = 0
     on_target_days = 0
 
     for day in days:
-        nutrition = get_nutrition_for_date(db, user_id, day)
+        nutrition = nutrition_by_date.get(day, {"protein": 0.0, "calories": 0.0})
         if nutrition["protein"] <= 0 and nutrition["calories"] <= 0:
             continue
         logged_days += 1
@@ -368,14 +388,43 @@ def calculate_workout_adherence(
     return round(min(100, actual / expected_total * 100), 1)
 
 
+def _recovery_logs_by_date(
+    db: Session, user_id: int, start_date: date, end_date: date,
+) -> dict[date, RecoveryLog]:
+    logs = (
+        db.query(RecoveryLog)
+        .filter(
+            RecoveryLog.user_id == user_id,
+            RecoveryLog.log_date >= start_date - timedelta(days=1),
+            RecoveryLog.log_date <= end_date,
+        )
+        .all()
+    )
+    return {log.log_date: log for log in logs}
+
+
+def _recovery_score_from_logs(logs_by_date: dict[date, RecoveryLog], log_date: date) -> float:
+    log = logs_by_date.get(log_date)
+    sleep_hours = log.sleep_hours if log and log.sleep_hours is not None else None
+    if sleep_hours is None:
+        prev_log = logs_by_date.get(log_date - timedelta(days=1))
+        if prev_log and prev_log.sleep_hours is not None:
+            sleep_hours = prev_log.sleep_hours
+
+    score = 0.0
+    if sleep_hours:
+        score += min(sleep_hours / 8 * 57, 57)
+    if log and log.water_liters:
+        score += min(log.water_liters / 3 * 43, 43)
+    return round(min(score, 100), 1)
+
+
 def calculate_recovery_adherence(
     db: Session, user_id: int, start_date: date, end_date: date,
 ) -> float | None:
     days = _date_range(start_date, end_date)
-    scores = [
-        calculate_recovery_score_for_date(db, user_id, day)
-        for day in days
-    ]
+    logs_by_date = _recovery_logs_by_date(db, user_id, start_date, end_date)
+    scores = [_recovery_score_from_logs(logs_by_date, day) for day in days]
     logged = [s for s in scores if s > 0]
     if not logged:
         return None
@@ -653,7 +702,7 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
             func.max(ExerciseSet.weight_kg).label("max_weight"),
         )
         .join(WorkoutExercise, WorkoutExercise.workout_id == Workout.id)
-        .join(ExerciseSet, ExerciseSet.exercise_id == WorkoutExercise.id)
+        .outerjoin(ExerciseSet, ExerciseSet.exercise_id == WorkoutExercise.id)
         .filter(Workout.user_id == user_id)
     )
     if start_date:
@@ -664,17 +713,39 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
         .order_by(Workout.workout_date)
         .all()
     )
+    from app.services.exercise_names import merge_strength_progression_points
+
+    all_exercise_names = [
+        row.exercise_name
+        for row in db.query(WorkoutExercise.exercise_name)
+        .join(Workout, Workout.id == WorkoutExercise.workout_id)
+        .filter(Workout.user_id == user_id)
+        .distinct()
+        .all()
+        if row.exercise_name
+    ]
+    merged_points = merge_strength_progression_points(
+        [
+            {
+                "date": str(row.workout_date),
+                "exercise": row.exercise_name,
+                "max_weight": row.max_weight or 0,
+            }
+            for row in strength_data
+        ],
+        all_exercise_names,
+    )
     strength_progression = [
         StrengthProgressPoint(
-            date=str(row.workout_date),
-            exercise=row.exercise_name,
-            max_weight=row.max_weight or 0,
+            date=str(point["date"]),
+            exercise=str(point["exercise"]),
+            max_weight=float(point["max_weight"] or 0),
         )
-        for row in strength_data
+        for point in merged_points
     ]
 
     # Nutrition trends
-    diet_q = db.query(DietLog).filter(DietLog.user_id == user_id)
+    diet_q = db.query(DietLog).options(joinedload(DietLog.entries)).filter(DietLog.user_id == user_id)
     if start_date:
         diet_q = diet_q.filter(DietLog.log_date >= start_date)
     diet_logs = diet_q.all()

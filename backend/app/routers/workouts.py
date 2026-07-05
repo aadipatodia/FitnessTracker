@@ -12,6 +12,7 @@ from app.schemas import WorkoutCreate, WorkoutResponse, ExerciseResponse, SetRes
 from app.services.analytics import get_user_body_weight_kg
 from app.services.exercise_progress_cache import (
     ensure_progress_current,
+    resync_exercise_names,
     resync_exercises_from_workout,
 )
 from app.services.workout_calories import estimate_workout_calories
@@ -136,17 +137,11 @@ async def delete_workout(
     )
     if not workout:
         raise HTTPException(status_code=404, detail="Workout not found")
-    from app.services.exercise_progress_cache import _normalize_exercise_key, resync_exercise_summary
-
-    exercise_keys = list({
-        _normalize_exercise_key(ex.exercise_name)
-        for ex in workout.exercises
-    })
+    exercise_names = [ex.exercise_name for ex in workout.exercises if ex.exercise_name]
     db.delete(workout)
     db.commit()
 
-    for key in exercise_keys:
-        resync_exercise_summary(db, current_user.id, key)
+    exercise_keys = resync_exercise_names(db, current_user.id, exercise_names)
     db.commit()
     await ensure_progress_current(db, current_user.id, exercise_keys)
 

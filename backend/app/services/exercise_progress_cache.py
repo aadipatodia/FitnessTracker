@@ -222,15 +222,56 @@ def resync_exercise_summary(db: Session, user_id: int, exercise_key: str) -> Exe
 
 
 def resync_exercises_from_workout(db: Session, user_id: int, workout: Workout) -> list[str]:
-    """Refresh summaries for every exercise in a saved workout."""
-    keys: list[str] = []
+    """Refresh summaries for every exercise in a saved workout (cluster-aware)."""
+    touched_names = [ex.exercise_name for ex in workout.exercises if ex.exercise_name]
+    if not touched_names:
+        return []
+
+    all_names = list(dict.fromkeys(touched_names + _all_exercise_names_for_user(db, user_id)))
+    clusters = cluster_exercise_names(all_names)
+    canonical_groups: dict[str, set[str]] = {}
+    for name, canonical in clusters.items():
+        canonical_groups.setdefault(canonical, set()).add(name)
+
+    synced_keys: list[str] = []
+    seen_canonicals: set[str] = set()
     for ex in workout.exercises:
-        key = _normalize_exercise_key(ex.exercise_name)
-        if key in keys:
+        if not ex.exercise_name:
             continue
-        keys.append(key)
-        resync_exercise_summary(db, user_id, key)
-    return keys
+        canonical = clusters.get(ex.exercise_name, ex.exercise_name)
+        if canonical in seen_canonicals:
+            continue
+        seen_canonicals.add(canonical)
+        members = canonical_groups.get(canonical, {canonical})
+        row = resync_exercise_cluster(db, user_id, canonical, members)
+        if row:
+            synced_keys.append(row.exercise_key)
+    return synced_keys
+
+
+def resync_exercise_names(db: Session, user_id: int, exercise_names: list[str]) -> list[str]:
+    """Rebuild cluster summaries after exercises change (e.g. workout deleted)."""
+    if not exercise_names:
+        return []
+
+    all_names = list(dict.fromkeys(exercise_names + _all_exercise_names_for_user(db, user_id)))
+    clusters = cluster_exercise_names(all_names)
+    canonical_groups: dict[str, set[str]] = {}
+    for name, canonical in clusters.items():
+        canonical_groups.setdefault(canonical, set()).add(name)
+
+    synced_keys: list[str] = []
+    seen_canonicals: set[str] = set()
+    for name in exercise_names:
+        canonical = clusters.get(name, name)
+        if canonical in seen_canonicals:
+            continue
+        seen_canonicals.add(canonical)
+        members = canonical_groups.get(canonical, {canonical})
+        row = resync_exercise_cluster(db, user_id, canonical, members)
+        if row:
+            synced_keys.append(row.exercise_key)
+    return synced_keys
 
 
 def _row_needs_ai_refresh(row: ExerciseProgressSummary) -> bool:
@@ -527,6 +568,25 @@ def resync_exercise_cluster(
     return row
 
 
+def _cluster_needs_resync(
+    db: Session,
+    user_id: int,
+    canonical: str,
+    members: set[str],
+) -> bool:
+    member_keys = {normalize_exercise_key(name) for name in members}
+    rows = [
+        row
+        for key in member_keys
+        if (row := _find_progress_row(db, user_id, key))
+    ]
+    if not rows:
+        return True
+    if len(rows) > 1:
+        return True
+    return rows[0].sessions_count <= 0
+
+
 def backfill_exercise_cache_for_charts(
     db: Session,
     user_id: int,
@@ -551,13 +611,16 @@ def backfill_exercise_cache_for_charts(
         canonical_groups.setdefault(canonical, set()).add(name)
 
     chart_canonicals = {clusters.get(name, name) for name in chart_exercise_names}
+    changed = False
     for canonical in chart_canonicals:
-        canonical_key = normalize_exercise_key(canonical)
-        existing = _find_progress_row(db, user_id, canonical_key)
-        if existing and existing.sessions_count > 0:
-            continue
         members = canonical_groups.get(canonical, {canonical})
+        if not _cluster_needs_resync(db, user_id, canonical, members):
+            continue
         resync_exercise_cluster(db, user_id, canonical, members)
+        changed = True
+
+    if not changed:
+        return
 
     try:
         db.commit()
@@ -602,6 +665,7 @@ def map_assessments_to_chart_exercises(
     unique_chart_names = sorted(set(chart_exercise_names))
     used_indices: set[int] = set()
     mapped: list[ExerciseAssessment] = []
+    fallback_assessments: list[ExerciseAssessment] | None = None
 
     for chart_name in unique_chart_names:
         match = _find_assessment_for_chart_exercise(chart_name, assessments, used_indices)
@@ -613,18 +677,20 @@ def map_assessments_to_chart_exercises(
             mapped.append(assessment)
             continue
 
-        goal = get_active_goal(db, user_id)
-        workouts_q = (
-            db.query(Workout)
-            .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
-            .filter(Workout.user_id == user_id)
-        )
-        if start_date:
-            workouts_q = workouts_q.filter(Workout.workout_date >= start_date)
-        fallback_assessments = build_exercise_assessments(
-            workouts_q.order_by(Workout.workout_date).all(),
-            goal,
-        )
+        if fallback_assessments is None:
+            goal = get_active_goal(db, user_id)
+            workouts_q = (
+                db.query(Workout)
+                .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
+                .filter(Workout.user_id == user_id)
+            )
+            if start_date:
+                workouts_q = workouts_q.filter(Workout.workout_date >= start_date)
+            fallback_assessments = build_exercise_assessments(
+                workouts_q.order_by(Workout.workout_date).all(),
+                goal,
+            )
+
         for assessment in fallback_assessments:
             if exercise_names_equivalent(assessment.exercise, chart_name):
                 mapped.append(assessment.model_copy(update={
