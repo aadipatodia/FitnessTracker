@@ -136,14 +136,14 @@ async def delete_workout(
     )
     if not workout:
         raise HTTPException(status_code=404, detail="Workout not found")
+    from app.services.exercise_progress_cache import _normalize_exercise_key, resync_exercise_summary
+
     exercise_keys = list({
-        ex.exercise_name.strip().lower()
+        _normalize_exercise_key(ex.exercise_name)
         for ex in workout.exercises
     })
     db.delete(workout)
     db.commit()
-
-    from app.services.exercise_progress_cache import resync_exercise_summary
 
     for key in exercise_keys:
         resync_exercise_summary(db, current_user.id, key)

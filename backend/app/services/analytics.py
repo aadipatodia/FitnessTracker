@@ -695,7 +695,6 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
         assessments_from_cache,
         backfill_exercise_cache_for_charts,
         bootstrap_user_cache,
-        ensure_progress_current,
         map_assessments_to_chart_exercises,
     )
 
@@ -719,8 +718,7 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
         if workouts:
             bootstrap_user_cache(db, user_id)
 
-    synced_keys = backfill_exercise_cache_for_charts(db, user_id, chart_exercise_names)
-    await ensure_progress_current(db, user_id, synced_keys or None)
+    backfill_exercise_cache_for_charts(db, user_id, chart_exercise_names)
     cached_assessments = assessments_from_cache(db, user_id, start_date)
     exercise_assessments = map_assessments_to_chart_exercises(
         chart_exercise_names,

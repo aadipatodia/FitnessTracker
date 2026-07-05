@@ -233,17 +233,17 @@ def resync_exercises_from_workout(db: Session, user_id: int, workout: Workout) -
     return keys
 
 
+def _row_needs_ai_refresh(row: ExerciseProgressSummary) -> bool:
+    return row.ai_refreshed_at is None or row.history_updated_at > row.ai_refreshed_at
+
+
 def list_stale_exercise_keys(db: Session, user_id: int) -> list[str]:
     rows = (
         db.query(ExerciseProgressSummary)
         .filter(ExerciseProgressSummary.user_id == user_id)
         .all()
     )
-    stale: list[str] = []
-    for row in rows:
-        if row.ai_refreshed_at is None or row.history_updated_at > row.ai_refreshed_at:
-            stale.append(row.exercise_key)
-    return stale
+    return [row.exercise_key for row in rows if _row_needs_ai_refresh(row)]
 
 
 def compact_payload_for_ai(row: ExerciseProgressSummary) -> dict:
@@ -383,7 +383,7 @@ async def refresh_ai_targets_for_exercises(
             continue
         seen.add(key)
         row = _find_progress_row(db, user_id, key)
-        if row and row.sessions_count > 0:
+        if row and row.sessions_count > 0 and _row_needs_ai_refresh(row):
             rows.append(row)
 
     if not rows:
@@ -407,14 +407,12 @@ async def refresh_ai_targets_for_exercises(
 async def ensure_progress_current(
     db: Session,
     user_id: int,
-    exercise_keys: list[str] | None = None,
+    exercise_keys: list[str],
 ) -> None:
-    """Refresh AI targets only for exercises whose workout data changed since last Gemini call."""
-    if exercise_keys is None:
-        keys = list_stale_exercise_keys(db, user_id)
-    else:
-        keys = exercise_keys
-    await refresh_ai_targets_for_exercises(db, user_id, keys)
+    """Refresh AI targets for logged exercises after a workout is saved or deleted."""
+    if not exercise_keys:
+        return
+    await refresh_ai_targets_for_exercises(db, user_id, exercise_keys)
 
 
 def _unique_exercise_keys(workouts: list[Workout]) -> list[str]:
@@ -533,10 +531,10 @@ def backfill_exercise_cache_for_charts(
     db: Session,
     user_id: int,
     chart_exercise_names: list[str],
-) -> list[str]:
-    """Ensure cached summaries exist for every exercise shown on charts."""
+) -> None:
+    """Ensure cached summaries exist for chart exercises (local DB only — no Gemini)."""
     if not chart_exercise_names:
-        return []
+        return
 
     workout_names = _all_exercise_names_for_user(db, user_id)
     cache_rows = (
@@ -553,19 +551,18 @@ def backfill_exercise_cache_for_charts(
         canonical_groups.setdefault(canonical, set()).add(name)
 
     chart_canonicals = {clusters.get(name, name) for name in chart_exercise_names}
-    synced_keys: list[str] = []
     for canonical in chart_canonicals:
+        canonical_key = normalize_exercise_key(canonical)
+        existing = _find_progress_row(db, user_id, canonical_key)
+        if existing and existing.sessions_count > 0:
+            continue
         members = canonical_groups.get(canonical, {canonical})
-        row = resync_exercise_cluster(db, user_id, canonical, members)
-        if row:
-            synced_keys.append(row.exercise_key)
+        resync_exercise_cluster(db, user_id, canonical, members)
 
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        return []
-    return synced_keys
 
 
 def _find_assessment_for_chart_exercise(

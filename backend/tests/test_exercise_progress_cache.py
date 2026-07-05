@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
 from app.services.exercise_progress_cache import (
     _apply_sessions_to_row,
     _build_progress_summary,
     _normalize_exercise_key,
+    _row_needs_ai_refresh,
     compact_payload_for_ai,
 )
 
@@ -99,3 +100,22 @@ def test_unique_exercise_keys_dedupes_case_variants():
     )
     keys = _unique_exercise_keys([workout])
     assert keys == ["bench press", "squat"]
+
+
+def test_row_needs_ai_refresh_when_never_refreshed():
+    row = _row(ai_refreshed_at=None, history_updated_at=datetime.utcnow())
+    assert _row_needs_ai_refresh(row) is True
+
+
+def test_row_needs_ai_refresh_when_history_newer():
+    row = _row(
+        ai_refreshed_at=datetime.utcnow() - timedelta(hours=1),
+        history_updated_at=datetime.utcnow(),
+    )
+    assert _row_needs_ai_refresh(row) is True
+
+
+def test_row_needs_ai_refresh_when_current():
+    now = datetime.utcnow()
+    row = _row(ai_refreshed_at=now, history_updated_at=now)
+    assert _row_needs_ai_refresh(row) is False
