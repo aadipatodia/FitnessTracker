@@ -11,6 +11,7 @@ from app.models.workout import Workout, WorkoutExercise, ExerciseSet
 from app.schemas import WorkoutCreate, WorkoutResponse, ExerciseResponse, SetResponse
 from app.services.analytics import get_user_body_weight_kg
 from app.services.exercise_progress_cache import (
+    canonicalize_exercise_names_for_user,
     ensure_progress_current,
     resync_exercise_names,
     resync_exercises_from_workout,
@@ -36,10 +37,19 @@ async def create_workout(
     db.add(workout)
     db.flush()
 
+    incoming_names = [ex.exercise_name.strip() for ex in data.exercises if ex.exercise_name.strip()]
+    canonical_names = canonicalize_exercise_names_for_user(
+        db,
+        current_user.id,
+        incoming_names,
+        refresh_semantic=True,
+    )
+
     for ex_data in data.exercises:
+        raw_name = ex_data.exercise_name.strip()
         exercise = WorkoutExercise(
             workout_id=workout.id,
-            exercise_name=ex_data.exercise_name,
+            exercise_name=canonical_names.get(raw_name, ex_data.exercise_name),
             order_index=ex_data.order_index,
             notes=ex_data.notes,
         )

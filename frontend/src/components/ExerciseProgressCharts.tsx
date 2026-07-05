@@ -4,7 +4,7 @@ import {
 import { Target, TrendingDown, TrendingUp, Minus, Sparkles } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate } from '@/lib/utils'
-import { findAssessmentForExercise } from '@/lib/exerciseNames'
+import { findAssessmentForExercise, normalizeExerciseKey } from '@/lib/exerciseNames'
 import type { ExerciseAssessment } from '@/lib/api'
 
 const CHART_COLORS = ['#c9a962', '#e8d5b5', '#a8893a', '#d4b872', '#8a7140', '#f5e6c8', '#b8954a']
@@ -52,16 +52,39 @@ function normalizeTrend(trend: string): TrendKey {
   return 'plateau'
 }
 
+function pickDisplayName(current: string, candidate: string): string {
+  const currentBase = current.replace(/\([^)]*\)/g, '').trim()
+  const candidateBase = candidate.replace(/\([^)]*\)/g, '').trim()
+  if (candidateBase.length < currentBase.length) return candidate
+  if (currentBase.length < candidateBase.length) return current
+  return current.localeCompare(candidate) <= 0 ? current : candidate
+}
+
 export function groupStrengthByExercise(
   points: StrengthProgressPoint[],
 ): Record<string, { date: string; max_weight: number }[]> {
-  const byExercise: Record<string, { date: string; max_weight: number }[]> = {}
-  for (const p of points) {
-    if (!byExercise[p.exercise]) byExercise[p.exercise] = []
-    byExercise[p.exercise].push({ date: p.date, max_weight: p.max_weight })
+  const byKey: Record<string, { displayName: string; points: { date: string; max_weight: number }[] }> = {}
+
+  for (const point of points) {
+    const key = normalizeExerciseKey(point.exercise)
+    if (!key) continue
+    if (!byKey[key]) {
+      byKey[key] = { displayName: point.exercise, points: [] }
+    } else {
+      byKey[key].displayName = pickDisplayName(byKey[key].displayName, point.exercise)
+    }
+    const existing = byKey[key].points.find((row) => row.date === point.date)
+    if (existing) {
+      existing.max_weight = Math.max(existing.max_weight, point.max_weight)
+    } else {
+      byKey[key].points.push({ date: point.date, max_weight: point.max_weight })
+    }
   }
-  for (const name of Object.keys(byExercise)) {
-    byExercise[name].sort((a, b) => a.date.localeCompare(b.date))
+
+  const byExercise: Record<string, { date: string; max_weight: number }[]> = {}
+  for (const { displayName, points: rows } of Object.values(byKey)) {
+    rows.sort((a, b) => a.date.localeCompare(b.date))
+    byExercise[displayName] = rows
   }
   return byExercise
 }

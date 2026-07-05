@@ -695,6 +695,25 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
         for m in metrics if m.body_fat_percent
     ]
 
+    from app.services.exercise_names import merge_strength_progression_points
+    from app.services.exercise_progress_cache import (
+        ensure_exercise_names_aligned,
+        get_semantic_exercise_clusters,
+    )
+
+    all_exercise_names = [
+        row.exercise_name
+        for row in db.query(WorkoutExercise.exercise_name)
+        .join(Workout, Workout.id == WorkoutExercise.workout_id)
+        .filter(Workout.user_id == user_id)
+        .distinct()
+        .all()
+        if row.exercise_name
+    ]
+    _, names_aligned = ensure_exercise_names_aligned(db, user_id, refresh_semantic=True)
+    if names_aligned:
+        db.commit()
+
     strength_q = (
         db.query(
             Workout.workout_date,
@@ -713,18 +732,18 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
         .order_by(Workout.workout_date)
         .all()
     )
-    from app.services.exercise_names import merge_strength_progression_points
-    from app.services.exercise_progress_cache import get_semantic_exercise_clusters
 
-    all_exercise_names = [
-        row.exercise_name
-        for row in db.query(WorkoutExercise.exercise_name)
-        .join(Workout, Workout.id == WorkoutExercise.workout_id)
-        .filter(Workout.user_id == user_id)
-        .distinct()
-        .all()
-        if row.exercise_name
-    ]
+    if names_aligned:
+        all_exercise_names = [
+            row.exercise_name
+            for row in db.query(WorkoutExercise.exercise_name)
+            .join(Workout, Workout.id == WorkoutExercise.workout_id)
+            .filter(Workout.user_id == user_id)
+            .distinct()
+            .all()
+            if row.exercise_name
+        ]
+
     semantic_mapping = get_semantic_exercise_clusters(db, user_id)
     merged_points = merge_strength_progression_points(
         [

@@ -35,7 +35,7 @@ from app.services.analytics import (
 
 RECENT_SESSIONS_STORED = 8
 RECENT_SESSIONS_FOR_AI = 4
-SEMANTIC_CLUSTER_VERSION = 2
+SEMANTIC_CLUSTER_VERSION = 3
 
 
 def _load_semantic_cluster_cache(raw: dict | None) -> tuple[dict[str, str], int]:
@@ -100,6 +100,79 @@ def cluster_exercise_names_for_user(
     else:
         semantic = get_semantic_exercise_clusters(db, user_id)
     return cluster_exercise_names(names, semantic_mapping=semantic or None)
+
+
+def canonicalize_exercise_names_for_user(
+    db: Session,
+    user_id: int,
+    names: list[str],
+    *,
+    refresh_semantic: bool = False,
+) -> dict[str, str]:
+    """Map each input name to its canonical display label for this user."""
+    trimmed = [n.strip() for n in names if n and n.strip()]
+    if not trimmed:
+        return {}
+    all_names = list(dict.fromkeys(trimmed + _all_exercise_names_for_user(db, user_id)))
+    clusters = cluster_exercise_names_for_user(
+        db,
+        user_id,
+        all_names,
+        refresh_semantic=refresh_semantic,
+    )
+    return {name: clusters.get(name, name) for name in trimmed}
+
+
+def consolidate_workout_exercise_names(
+    db: Session,
+    user_id: int,
+    clusters: dict[str, str] | None = None,
+) -> int:
+    """Rewrite stored workout exercise names to cluster canonicals."""
+    all_names = _all_exercise_names_for_user(db, user_id)
+    if not all_names:
+        return 0
+    if clusters is None:
+        clusters = cluster_exercise_names_for_user(db, user_id, all_names)
+
+    updated = 0
+    rows = (
+        db.query(WorkoutExercise)
+        .join(Workout, Workout.id == WorkoutExercise.workout_id)
+        .filter(Workout.user_id == user_id)
+        .all()
+    )
+    for row in rows:
+        canonical = clusters.get(row.exercise_name, row.exercise_name)
+        if canonical != row.exercise_name:
+            row.exercise_name = canonical
+            updated += 1
+    return updated
+
+
+def ensure_exercise_names_aligned(
+    db: Session,
+    user_id: int,
+    *,
+    refresh_semantic: bool = False,
+) -> tuple[dict[str, str], bool]:
+    """
+    Refresh semantic clusters when needed and rewrite workout rows to canonical names.
+    Returns (clusters, changed).
+    """
+    all_names = _all_exercise_names_for_user(db, user_id)
+    if not all_names:
+        return {}, False
+
+    semantic_updated = False
+    if refresh_semantic:
+        semantic, semantic_updated = refresh_semantic_exercise_clusters(db, user_id, all_names)
+    else:
+        semantic = get_semantic_exercise_clusters(db, user_id)
+
+    clusters = cluster_exercise_names(all_names, semantic_mapping=semantic or None)
+    renamed = consolidate_workout_exercise_names(db, user_id, clusters)
+    return clusters, semantic_updated or renamed > 0
 
 
 def _session_from_exercise(workout: Workout, ex: WorkoutExercise) -> dict | None:
@@ -546,17 +619,20 @@ def bootstrap_user_cache(db: Session, user_id: int) -> list[str]:
     if existing:
         return []
 
-    workouts = (
-        db.query(Workout)
-        .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
-        .filter(Workout.user_id == user_id)
-        .order_by(Workout.workout_date)
-        .all()
-    )
+    all_names = _all_exercise_names_for_user(db, user_id)
+    if not all_names:
+        return []
+
+    clusters, _changed = ensure_exercise_names_aligned(db, user_id, refresh_semantic=True)
+    canonical_groups: dict[str, set[str]] = {}
+    for name, canonical in clusters.items():
+        canonical_groups.setdefault(canonical, set()).add(name)
+
     keys: list[str] = []
-    for key in _unique_exercise_keys(workouts):
-        if resync_exercise_summary(db, user_id, key):
-            keys.append(key)
+    for canonical, members in canonical_groups.items():
+        row = resync_exercise_cluster(db, user_id, canonical, members)
+        if row:
+            keys.append(row.exercise_key)
     try:
         db.commit()
     except IntegrityError:

@@ -872,24 +872,28 @@ def resolve_exercise_name_clusters(names: list[str]) -> dict[str, str]:
         return identity
 
     user_input = {"exercise_names": unique}
-    prompt = f"""You analyze exercise names from a user's workout log. Users often log the same exercise under different names — typos, abbreviations, alternate phrasing, or inconsistent muscle/movement labels.
+    prompt = f"""You analyze exercise names from a user's workout log. The same lift is often logged under different labels — typos, capitalization, abbreviations, equipment notes, or rep-counting notes in parentheses.
 
 Exercise names to analyze:
 {json.dumps(unique, indent=2)}
 
-Group names that refer to the SAME exercise the user likely performed. Merge inconsistent naming for one movement, for example:
-- "Cable chest press" and "Cable cross fly" when they clearly describe the same cable chest exercise the user logs on different days
-- "Walking Lunges with dumbells in each hand" and "Lunges (reps are for each leg)" — same lunge movement; notes about dumbbells or per-leg reps are logging detail, not a different exercise
-- "Lat pulldown" and "Lat pull down"
-- "Leg press" and "Leg press machine"
+Your job: group names that refer to the SAME single exercise/movement the user performed.
 
-Do NOT merge genuinely different exercises, for example:
-- "Single leg Leg Extension" and "Leg Extension" — unilateral vs bilateral are different exercises even though the muscle and machine are similar
-- "Bench press" and "Incline bench press"
-- "Hammer curl" and "Preacher curl"
-- "Cable fly" and "Cable row" (different movements)
+ALWAYS merge these as the same exercise:
+- Capitalization or spelling variants: "Barbell Skull Crushers" and "Barbell Skull crushers"; "Lat pulldown" and "Lat pull down"
+- Parenthetical logging notes that do NOT change the movement: equipment ("with dumbbells in each hand"), rep style ("reps are for each leg"), machine notes ("machine weight extra")
+- "Walking Lunges with dumbbells in each hand" and "Lunges (reps are for each leg)" — same lunge pattern; equipment and per-leg rep notes are logging detail
+- "Leg press" and "Leg press (machine)" or "Leg press machine"
 
-When unsure, keep exercises separate. Parenthetical notes (equipment, rep counting style, machine notes) often indicate the same exercise; unilateral vs bilateral, incline vs flat, or different movement patterns usually indicate different exercises.
+Merge when names describe the same movement the user clearly repeats across sessions, even if muscle labels differ slightly, for example:
+- "Cable chest press" and "Cable cross fly" when both appear to be the same cable chest exercise on different days
+
+Do NOT merge genuinely different exercises:
+- Unilateral vs bilateral: "Single leg Leg Extension" vs "Leg Extension"
+- Different angles/variants: "Bench press" vs "Incline bench press"
+- Different movements: "Hammer curl" vs "Preacher curl"; "Cable fly" vs "Cable row"
+
+When unsure, keep exercises separate — but never split the same name over capitalization or parenthetical notes alone.
 
 Return ONLY valid JSON (no markdown):
 {{
@@ -904,7 +908,8 @@ Return ONLY valid JSON (no markdown):
 Rules:
 - Every input name must appear in exactly one cluster.
 - Single-name clusters are allowed when no merge is warranted.
-- Prefer the clearest, most standard spelling as canonical.
+- canonical: shortest clear standard name WITHOUT parenthetical notes when possible (e.g. "Lunges" not "Lunges (reps are for each leg)").
+- Use Title Case for canonical names when reasonable.
 - aliases must use the exact strings from the input list."""
 
     parsed = _generate_json(

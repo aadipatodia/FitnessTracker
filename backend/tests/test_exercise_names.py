@@ -48,6 +48,26 @@ def test_cluster_exercise_names_merges_variants():
     assert clusters["front raises"] == clusters["Front Raises"]
 
 
+def test_resolve_canonical_exercise_name_prefers_cluster():
+    from app.services.exercise_names import resolve_canonical_exercise_name
+
+    pool = ["Barbell Skull Crushers", "Barbell Skull crushers", "Bench Press"]
+    assert resolve_canonical_exercise_name("Barbell Skull crushers", pool) == "Barbell Skull Crushers" or (
+        resolve_canonical_exercise_name("Barbell Skull crushers", pool)
+        == resolve_canonical_exercise_name("Barbell Skull Crushers", pool)
+    )
+
+
+def test_merge_strength_progression_points_merges_skull_crusher_case():
+    points = [
+        {"date": "2026-07-02", "exercise": "Barbell Skull Crushers", "max_weight": 10},
+        {"date": "2026-07-05", "exercise": "Barbell Skull crushers", "max_weight": 12},
+    ]
+    merged = merge_strength_progression_points(points)
+    assert len(merged) == 2
+    assert len({row["exercise"] for row in merged}) == 1
+
+
 def test_merge_strength_progression_points_combines_name_variants():
     points = [
         {"date": "2026-07-02", "exercise": "Bench Press", "max_weight": 30},

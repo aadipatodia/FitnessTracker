@@ -178,6 +178,20 @@ def cluster_exercise_names(
     return mapping
 
 
+def resolve_canonical_exercise_name(
+    name: str,
+    all_names: list[str],
+    semantic_mapping: dict[str, str] | None = None,
+) -> str:
+    """Pick the cluster canonical display name for one exercise label."""
+    trimmed = (name or "").strip()
+    if not trimmed:
+        return name
+    pool = list(dict.fromkeys([n for n in all_names if n and n.strip()] + [trimmed]))
+    clusters = cluster_exercise_names(pool, semantic_mapping=semantic_mapping)
+    return clusters.get(trimmed, trimmed)
+
+
 def merge_strength_progression_points(
     points: list[dict[str, str | float]],
     all_exercise_names: list[str] | None = None,
