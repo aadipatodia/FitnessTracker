@@ -50,12 +50,21 @@ def _save_semantic_cluster_cache(mapping: dict[str, str]) -> dict:
     return {"version": SEMANTIC_CLUSTER_VERSION, "mapping": mapping}
 
 
+def get_semantic_exercise_clusters(db: Session, user_id: int) -> dict[str, str]:
+    """Return cached semantic clusters only — never calls Gemini."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return {}
+    cached, _cache_version = _load_semantic_cluster_cache(user.exercise_name_clusters)
+    return cached
+
+
 def refresh_semantic_exercise_clusters(
     db: Session,
     user_id: int,
     names: list[str],
 ) -> tuple[dict[str, str], bool]:
-    """Refresh cached Gemini exercise-name clusters when new names appear."""
+    """Call Gemini after a workout is saved when new names appear or rules changed."""
     unique = list(dict.fromkeys(n.strip() for n in names if n and n.strip()))
     if not unique:
         return {}, False
@@ -82,9 +91,14 @@ def cluster_exercise_names_for_user(
     db: Session,
     user_id: int,
     names: list[str],
+    *,
+    refresh_semantic: bool = False,
 ) -> dict[str, str]:
     """Fuzzy clusters plus cached Gemini semantic aliases for this user."""
-    semantic, _updated = refresh_semantic_exercise_clusters(db, user_id, names)
+    if refresh_semantic:
+        semantic, _updated = refresh_semantic_exercise_clusters(db, user_id, names)
+    else:
+        semantic = get_semantic_exercise_clusters(db, user_id)
     return cluster_exercise_names(names, semantic_mapping=semantic or None)
 
 
@@ -280,7 +294,7 @@ def resync_exercises_from_workout(db: Session, user_id: int, workout: Workout) -
         return []
 
     all_names = list(dict.fromkeys(touched_names + _all_exercise_names_for_user(db, user_id)))
-    clusters = cluster_exercise_names_for_user(db, user_id, all_names)
+    clusters = cluster_exercise_names_for_user(db, user_id, all_names, refresh_semantic=True)
     canonical_groups: dict[str, set[str]] = {}
     for name, canonical in clusters.items():
         canonical_groups.setdefault(canonical, set()).add(name)
