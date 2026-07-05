@@ -29,3 +29,6 @@ class User(Base):
     checkpoint_completions: Mapped[list["CheckpointCompletion"]] = relationship(
         "CheckpointCompletion", back_populates="user"
     )
+    exercise_progress_summaries: Mapped[list["ExerciseProgressSummary"]] = relationship(
+        "ExerciseProgressSummary", back_populates="user"
+    )

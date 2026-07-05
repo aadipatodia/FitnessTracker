@@ -755,29 +755,49 @@ def _fallback_coaching(user_data: dict, analysis_type: str) -> dict:
 
 
 async def generate_exercise_next_session_targets(
-    exercise_histories: dict[str, list[dict]],
+    exercise_payloads: dict[str, list[dict] | dict],
     goal_snapshot: dict,
     fallbacks: dict[str, dict],
+    *,
+    incremental: bool = False,
 ) -> dict[str, dict]:
     """
-    Use Gemini to set the next-session target per exercise from full logged history
-    (every set in every session), not just peak weight.
+    Set next-session targets per exercise.
+
+    When incremental=True, exercise_payloads values are compact dicts
+    (progress_summary + recent_sessions + previous_coaching_summary).
+    Otherwise values are full session lists (legacy).
     """
-    if not exercise_histories:
-        return {}
+    if not exercise_payloads:
+        return {"targets": [], "history_summaries": {}}
 
     user_input = {
         "goal": goal_snapshot,
-        "exercise_histories": exercise_histories,
+        "exercises": exercise_payloads,
+        "mode": "incremental" if incremental else "full_history",
     }
 
-    prompt = f"""You are an expert strength coach. For each exercise below, study the COMPLETE workout history — every set in every session (weight, reps, set order, volume trends, plateaus, and regressions). Do NOT base your recommendation on max weight alone.
+    if incremental:
+        history_block = f"""Exercise data (compact — do NOT ask for more history):
+{json.dumps(exercise_payloads, indent=2, default=str)}
+
+Each exercise includes:
+- progress_summary: all-time totals, peaks, and volume trend across ALL past sessions
+- recent_sessions: only the last few sessions with full set detail
+- previous_coaching_summary: your last recommendation (update it, do not repeat verbatim)
+- current_best: latest peak set
+
+Use progress_summary for long-term context. Use recent_sessions for set-level detail."""
+    else:
+        history_block = f"""Full exercise histories (chronological sessions, all sets logged):
+{json.dumps(exercise_payloads, indent=2, default=str)}"""
+
+    prompt = f"""You are an expert strength coach. For each exercise below, recommend the next session target.
 
 User goal context:
 {json.dumps(goal_snapshot, indent=2, default=str)}
 
-Full exercise histories (chronological sessions, all sets logged):
-{json.dumps(exercise_histories, indent=2, default=str)}
+{history_block}
 
 Rules:
 - Apply progressive overload suited to the user's goal type (strength / recomp / fat loss / general fitness).
@@ -787,6 +807,7 @@ Rules:
 - Weight jumps should be realistic (typically 2.5 kg for barbell/dumbbell compounds, smaller for isolation).
 - Each exercise MUST get a unique, specific next-session prescription — never reuse the same sentence across exercises.
 - next_session_summary: 1–2 sentences starting with "Next session:" — concrete weight × reps (and sets if helpful), plus brief coaching rationale tied to THEIR history.
+- history_summary: one compact sentence capturing their long-term trajectory on this lift (for your future reference — peaks, plateaus, trend). Only needed in incremental mode.
 
 Return ONLY valid JSON (no markdown):
 {{
@@ -795,12 +816,13 @@ Return ONLY valid JSON (no markdown):
       "exercise": "exact exercise name from input",
       "next_weight_kg": number or null,
       "next_reps": number or null,
-      "next_session_summary": "string"
+      "next_session_summary": "string",
+      "history_summary": "string or null"
     }}
   ]
 }}
 
-Include one entry for every exercise in the input histories."""
+Include one entry for every exercise in the input."""
 
     parsed = await _generate_json_async(
         "exercise_next_session_targets",
@@ -817,19 +839,23 @@ Include one entry for every exercise in the input histories."""
         ]},
     )
 
-    result: dict[str, dict] = {}
+    targets: dict[str, dict] = {}
+    history_summaries: dict[str, str] = {}
     for entry in parsed.get("targets") or []:
         name = entry.get("exercise")
         if not name:
             continue
-        result[name] = {
+        targets[name] = {
             "next_weight_kg": entry.get("next_weight_kg"),
             "next_reps": entry.get("next_reps"),
-            "next_session_summary": entry.get("next_session_summary") or fallbacks.get(name, {}).get("next_session_summary", ""),
+            "next_session_summary": entry.get("next_session_summary")
+            or fallbacks.get(name, {}).get("next_session_summary", ""),
         }
+        if entry.get("history_summary"):
+            history_summaries[name] = entry["history_summary"]
 
     for name, fb in fallbacks.items():
-        if name not in result:
-            result[name] = fb
+        if name not in targets:
+            targets[name] = fb
 
-    return result
+    return {"targets": targets, "history_summaries": history_summaries}

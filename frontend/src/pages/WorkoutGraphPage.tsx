@@ -51,7 +51,7 @@ export function WorkoutGraphPage() {
       {loading ? (
         <div className="flex flex-col items-center justify-center gap-3 h-64">
           <div className="luxury-spinner" />
-          <p className="text-sm text-muted-foreground">Analyzing your full workout history…</p>
+          <p className="text-sm text-muted-foreground">Loading workout progress…</p>
         </div>
       ) : error ? (
         <Card>

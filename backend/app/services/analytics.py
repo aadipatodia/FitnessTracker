@@ -690,24 +690,33 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
     protein_intake = [ChartDataPoint(date=d, value=v) for d, v in sorted(protein_by_date.items())]
     calories_intake = [ChartDataPoint(date=d, value=v) for d, v in sorted(calories_by_date.items())]
 
-    workouts_q = (
-        db.query(Workout)
-        .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
-        .filter(Workout.user_id == user_id)
+    from app.models.exercise_progress import ExerciseProgressSummary
+    from app.services.exercise_progress_cache import (
+        assessments_from_cache,
+        bootstrap_user_cache,
+        ensure_progress_current,
     )
-    if start_date:
-        workouts_q = workouts_q.filter(Workout.workout_date >= start_date)
-    workouts = workouts_q.order_by(Workout.workout_date).all()
-    goal = get_active_goal(db, user_id)
-    histories = build_exercise_history_summaries(workouts)
-    fallbacks = _build_fallback_next_session_targets(histories, goal)
-    from app.services.gemini import generate_exercise_next_session_targets
-    next_by_exercise = await generate_exercise_next_session_targets(
-        histories,
-        _goal_snapshot(goal),
-        fallbacks,
+
+    has_cache = (
+        db.query(ExerciseProgressSummary.id)
+        .filter(ExerciseProgressSummary.user_id == user_id)
+        .limit(1)
+        .first()
     )
-    exercise_assessments = build_exercise_assessments(workouts, goal, next_by_exercise)
+    if not has_cache:
+        workouts_q = (
+            db.query(Workout)
+            .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
+            .filter(Workout.user_id == user_id)
+        )
+        if start_date:
+            workouts_q = workouts_q.filter(Workout.workout_date >= start_date)
+        workouts = workouts_q.order_by(Workout.workout_date).all()
+        if workouts:
+            bootstrap_user_cache(db, user_id)
+
+    await ensure_progress_current(db, user_id)
+    exercise_assessments = assessments_from_cache(db, user_id, start_date)
 
     return DashboardCharts(
         weight_trend=weight_trend,

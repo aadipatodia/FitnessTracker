@@ -10,13 +10,17 @@ from app.models.user import User
 from app.models.workout import Workout, WorkoutExercise, ExerciseSet
 from app.schemas import WorkoutCreate, WorkoutResponse, ExerciseResponse, SetResponse
 from app.services.analytics import get_user_body_weight_kg
+from app.services.exercise_progress_cache import (
+    ensure_progress_current,
+    resync_exercises_from_workout,
+)
 from app.services.workout_calories import estimate_workout_calories
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
 
 @router.post("", response_model=WorkoutResponse)
-def create_workout(
+async def create_workout(
     data: WorkoutCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -58,6 +62,10 @@ def create_workout(
         .filter(Workout.id == workout.id, Workout.user_id == current_user.id)
         .first()
     )
+    exercise_keys = resync_exercises_from_workout(db, current_user.id, workout)
+    db.commit()
+    await ensure_progress_current(db, current_user.id, exercise_keys)
+
     body_weight = get_user_body_weight_kg(db, current_user.id)
     response = _to_response(workout, body_weight)
     exercise_names = ", ".join(e.exercise_name for e in workout.exercises[:3])
@@ -115,20 +123,32 @@ def get_workout(
 
 
 @router.delete("/{workout_id}", status_code=204)
-def delete_workout(
+async def delete_workout(
     workout_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     workout = (
         db.query(Workout)
+        .options(joinedload(Workout.exercises))
         .filter(Workout.id == workout_id, Workout.user_id == current_user.id)
         .first()
     )
     if not workout:
         raise HTTPException(status_code=404, detail="Workout not found")
+    exercise_keys = list({
+        ex.exercise_name.strip().lower()
+        for ex in workout.exercises
+    })
     db.delete(workout)
     db.commit()
+
+    from app.services.exercise_progress_cache import resync_exercise_summary
+
+    for key in exercise_keys:
+        resync_exercise_summary(db, current_user.id, key)
+    db.commit()
+    await ensure_progress_current(db, current_user.id, exercise_keys)
 
 
 def _to_response(workout: Workout, body_weight_kg: float | None = None) -> WorkoutResponse:

@@ -8,6 +8,7 @@ from app.models.food import FoodItem
 from app.models.coaching import CoachingInsight
 from app.models.activity import ActivityLog
 from app.models.checkpoint import Checkpoint, CheckpointCompletion
+from app.models.exercise_progress import ExerciseProgressSummary
 
 __all__ = [
     "User",
@@ -24,4 +25,5 @@ __all__ = [
     "ActivityLog",
     "Checkpoint",
     "CheckpointCompletion",
+    "ExerciseProgressSummary",
 ]
