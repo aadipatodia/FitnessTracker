@@ -100,11 +100,27 @@ def find_best_exercise_match(
     return best_name
 
 
+def _canonical_for_cluster_members(
+    members: list[str],
+    name_counts: Counter,
+) -> str:
+    return min(
+        members,
+        key=lambda n: (
+            -name_counts.get(n, 0),
+            "(" in n or "[" in n,
+            len(normalize_exercise_key(n)),
+            len(n),
+        ),
+    )
+
+
 def cluster_exercise_names(
     names: list[str],
     threshold: float = FUZZY_MATCH_THRESHOLD,
+    semantic_mapping: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    """Map each display name to a canonical display name within its fuzzy cluster."""
+    """Map each display name to a canonical display name within its cluster."""
     unique = list(dict.fromkeys(n.strip() for n in names if n and n.strip()))
     if not unique:
         return {}
@@ -127,6 +143,24 @@ def cluster_exercise_names(
             if exercise_names_equivalent(left, right, threshold):
                 union(left, right)
 
+    semantic_canonicals: dict[str, str] = {}
+    if semantic_mapping:
+        semantic_groups: dict[str, list[str]] = {}
+        for name in unique:
+            canonical = semantic_mapping.get(name)
+            if not canonical:
+                continue
+            semantic_groups.setdefault(canonical, []).append(name)
+        for group in semantic_groups.values():
+            if len(group) < 2:
+                continue
+            anchor = group[0]
+            preferred = semantic_mapping.get(anchor, anchor)
+            for member in group:
+                semantic_canonicals[member] = preferred
+            for other in group[1:]:
+                union(anchor, other)
+
     name_counts = Counter(names)
     clusters: dict[str, list[str]] = {}
     for name in unique:
@@ -134,15 +168,11 @@ def cluster_exercise_names(
 
     mapping: dict[str, str] = {}
     for members in clusters.values():
-        canonical = min(
-            members,
-            key=lambda n: (
-                -name_counts.get(n, 0),
-                "(" in n or "[" in n,
-                len(normalize_exercise_key(n)),
-                len(n),
-            ),
+        semantic_member = next(
+            (semantic_canonicals[member] for member in members if member in semantic_canonicals),
+            None,
         )
+        canonical = semantic_member or _canonical_for_cluster_members(members, name_counts)
         for member in members:
             mapping[member] = canonical
     return mapping
@@ -151,6 +181,7 @@ def cluster_exercise_names(
 def merge_strength_progression_points(
     points: list[dict[str, str | float]],
     all_exercise_names: list[str] | None = None,
+    semantic_mapping: dict[str, str] | None = None,
 ) -> list[dict[str, str | float]]:
     """
     Merge chart points that share a fuzzy exercise cluster.
@@ -164,7 +195,7 @@ def merge_strength_progression_points(
     names = [str(p["exercise"]) for p in points if p.get("exercise")]
     if all_exercise_names:
         names = list(dict.fromkeys(names + [n for n in all_exercise_names if n]))
-    clusters = cluster_exercise_names(names)
+    clusters = cluster_exercise_names(names, semantic_mapping=semantic_mapping)
 
     merged: dict[tuple[str, str], float] = {}
     for point in points:

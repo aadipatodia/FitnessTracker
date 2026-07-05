@@ -91,3 +91,32 @@ def test_cluster_prefers_clean_name_without_notes():
     ]
     clusters = cluster_exercise_names(names)
     assert clusters[names[1]] == "Leg press"
+
+
+def test_cluster_exercise_names_merges_semantic_aliases():
+    names = ["Cable Chest Press", "Cable cross fly", "Bench Press"]
+    semantic = {
+        "Cable Chest Press": "Cable Chest Press",
+        "Cable cross fly": "Cable Chest Press",
+        "Bench Press": "Bench Press",
+    }
+    clusters = cluster_exercise_names(names, semantic_mapping=semantic)
+    assert clusters["Cable cross fly"] == clusters["Cable Chest Press"]
+    assert clusters["Bench Press"] == "Bench Press"
+
+
+def test_merge_strength_progression_points_merges_semantic_aliases():
+    points = [
+        {"date": "2026-07-02", "exercise": "Cable Chest Press", "max_weight": 7.5},
+        {"date": "2026-07-05", "exercise": "Cable cross fly", "max_weight": 10},
+    ]
+    semantic = {
+        "Cable Chest Press": "Cable Chest Press",
+        "Cable cross fly": "Cable Chest Press",
+    }
+    merged = merge_strength_progression_points(points, semantic_mapping=semantic)
+    assert len(merged) == 2
+    assert merged[0]["exercise"] == merged[1]["exercise"]
+    by_date = {row["date"]: row["max_weight"] for row in merged}
+    assert by_date["2026-07-02"] == 7.5
+    assert by_date["2026-07-05"] == 10

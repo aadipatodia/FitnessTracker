@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.exercise_progress import ExerciseProgressSummary
+from app.models.user import User
 from app.models.workout import Workout, WorkoutExercise, ExerciseSet
 from app.schemas import ExerciseAssessment
 from app.services.exercise_names import (
@@ -34,6 +35,43 @@ from app.services.analytics import (
 
 RECENT_SESSIONS_STORED = 8
 RECENT_SESSIONS_FOR_AI = 4
+
+
+def refresh_semantic_exercise_clusters(
+    db: Session,
+    user_id: int,
+    names: list[str],
+) -> tuple[dict[str, str], bool]:
+    """Refresh cached Gemini exercise-name clusters when new names appear."""
+    unique = list(dict.fromkeys(n.strip() for n in names if n and n.strip()))
+    if not unique:
+        return {}, False
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return {}, False
+
+    cached = user.exercise_name_clusters or {}
+    missing = [name for name in unique if name not in cached]
+    if not missing:
+        return cached, False
+
+    from app.services.gemini import resolve_exercise_name_clusters
+
+    refreshed = resolve_exercise_name_clusters(unique)
+    user.exercise_name_clusters = refreshed
+    db.flush()
+    return refreshed, True
+
+
+def cluster_exercise_names_for_user(
+    db: Session,
+    user_id: int,
+    names: list[str],
+) -> dict[str, str]:
+    """Fuzzy clusters plus cached Gemini semantic aliases for this user."""
+    semantic, _updated = refresh_semantic_exercise_clusters(db, user_id, names)
+    return cluster_exercise_names(names, semantic_mapping=semantic or None)
 
 
 def _session_from_exercise(workout: Workout, ex: WorkoutExercise) -> dict | None:
@@ -228,7 +266,7 @@ def resync_exercises_from_workout(db: Session, user_id: int, workout: Workout) -
         return []
 
     all_names = list(dict.fromkeys(touched_names + _all_exercise_names_for_user(db, user_id)))
-    clusters = cluster_exercise_names(all_names)
+    clusters = cluster_exercise_names_for_user(db, user_id, all_names)
     canonical_groups: dict[str, set[str]] = {}
     for name, canonical in clusters.items():
         canonical_groups.setdefault(canonical, set()).add(name)
@@ -255,7 +293,7 @@ def resync_exercise_names(db: Session, user_id: int, exercise_names: list[str]) 
         return []
 
     all_names = list(dict.fromkeys(exercise_names + _all_exercise_names_for_user(db, user_id)))
-    clusters = cluster_exercise_names(all_names)
+    clusters = cluster_exercise_names_for_user(db, user_id, all_names)
     canonical_groups: dict[str, set[str]] = {}
     for name, canonical in clusters.items():
         canonical_groups.setdefault(canonical, set()).add(name)
@@ -511,6 +549,8 @@ def _all_exercise_names_for_user(db: Session, user_id: int) -> list[str]:
 
 
 def _exercise_in_cluster(exercise_name: str, member_names: set[str]) -> bool:
+    if exercise_name in member_names:
+        return True
     for member in member_names:
         if exercise_names_equivalent(exercise_name, member):
             return True
@@ -604,7 +644,7 @@ def backfill_exercise_cache_for_charts(
     )
     cache_names = [row.exercise_name for row in cache_rows if row.exercise_name]
     all_names = list(dict.fromkeys(chart_exercise_names + workout_names + cache_names))
-    clusters = cluster_exercise_names(all_names)
+    clusters = cluster_exercise_names_for_user(db, user_id, all_names)
 
     canonical_groups: dict[str, set[str]] = {}
     for name, canonical in clusters.items():

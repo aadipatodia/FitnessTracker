@@ -859,3 +859,76 @@ Include one entry for every exercise in the input."""
             targets[name] = fb
 
     return {"targets": targets, "history_summaries": history_summaries}
+
+
+def resolve_exercise_name_clusters(names: list[str]) -> dict[str, str]:
+    """
+    Use Gemini to group exercise names that refer to the same movement despite
+    inconsistent labels (e.g. "Cable Chest Press" vs "Cable cross fly").
+    """
+    unique = list(dict.fromkeys(n.strip() for n in names if n and n.strip()))
+    identity = {name: name for name in unique}
+    if len(unique) < 2:
+        return identity
+
+    user_input = {"exercise_names": unique}
+    prompt = f"""You analyze exercise names from a user's workout log. Users often log the same exercise under different names — typos, abbreviations, alternate phrasing, or inconsistent muscle/movement labels.
+
+Exercise names to analyze:
+{json.dumps(unique, indent=2)}
+
+Group names that refer to the SAME exercise the user likely performed. Merge inconsistent naming for one movement, for example:
+- "Cable chest press" and "Cable cross fly" when they clearly describe the same cable chest exercise the user logs on different days
+- "Lat pulldown" and "Lat pull down"
+- "Leg press" and "Leg press machine"
+
+Do NOT merge genuinely different exercises, for example:
+- "Bench press" and "Incline bench press"
+- "Hammer curl" and "Preacher curl"
+- "Cable fly" and "Cable row" (different movements)
+
+When unsure, keep exercises separate.
+
+Return ONLY valid JSON (no markdown):
+{{
+  "clusters": [
+    {{
+      "canonical": "preferred display name for the group",
+      "aliases": ["every name in this group, including the canonical"]
+    }}
+  ]
+}}
+
+Rules:
+- Every input name must appear in exactly one cluster.
+- Single-name clusters are allowed when no merge is warranted.
+- Prefer the clearest, most standard spelling as canonical.
+- aliases must use the exact strings from the input list."""
+
+    parsed = _generate_json(
+        "exercise_name_clusters",
+        user_input,
+        prompt,
+        {"clusters": [{"canonical": name, "aliases": [name]} for name in unique]},
+    )
+
+    mapping: dict[str, str] = {}
+    seen: set[str] = set()
+    for cluster in parsed.get("clusters") or []:
+        canonical = (cluster.get("canonical") or "").strip()
+        aliases = cluster.get("aliases") or []
+        if not canonical and aliases:
+            canonical = str(aliases[0]).strip()
+        if not canonical:
+            continue
+        for alias in aliases:
+            alias_text = str(alias).strip()
+            if not alias_text or alias_text not in unique or alias_text in seen:
+                continue
+            mapping[alias_text] = canonical
+            seen.add(alias_text)
+
+    for name in unique:
+        if name not in mapping:
+            mapping[name] = name
+    return mapping

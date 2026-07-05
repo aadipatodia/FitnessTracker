@@ -714,6 +714,7 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
         .all()
     )
     from app.services.exercise_names import merge_strength_progression_points
+    from app.services.exercise_progress_cache import refresh_semantic_exercise_clusters
 
     all_exercise_names = [
         row.exercise_name
@@ -724,6 +725,15 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
         .all()
         if row.exercise_name
     ]
+    semantic_mapping, clusters_updated = refresh_semantic_exercise_clusters(
+        db, user_id, all_exercise_names
+    )
+    if clusters_updated:
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            semantic_mapping = {}
     merged_points = merge_strength_progression_points(
         [
             {
@@ -734,6 +744,7 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
             for row in strength_data
         ],
         all_exercise_names,
+        semantic_mapping=semantic_mapping or None,
     )
     strength_progression = [
         StrengthProgressPoint(
