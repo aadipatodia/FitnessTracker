@@ -2,6 +2,7 @@ from app.services.exercise_names import (
     cluster_exercise_names,
     exercise_names_equivalent,
     exercise_similarity,
+    extract_exercise_base_name,
     find_best_exercise_match,
     merge_strength_progression_points,
     normalize_exercise_key,
@@ -11,6 +12,22 @@ from app.services.exercise_names import (
 def test_normalize_exercise_key_strips_punctuation_and_case():
     assert normalize_exercise_key("  Hammer-Curl ") == "hammer curl"
     assert normalize_exercise_key("Bench Press!!!") == "bench press"
+
+
+def test_normalize_exercise_key_strips_parenthetical_notes():
+    assert normalize_exercise_key(
+        "Leg press (the weight is on addition to weight of machine)"
+    ) == "leg press"
+    assert normalize_exercise_key("Leg press") == "leg press"
+    assert exercise_names_equivalent(
+        "Leg press",
+        "Leg press (the weight is on addition to weight of machine)",
+    )
+
+
+def test_extract_exercise_base_name():
+    assert extract_exercise_base_name("Squat [barbell]") == "Squat"
+    assert extract_exercise_base_name("  Leg press (notes here)  ") == "Leg press"
 
 
 def test_exercise_names_equivalent_handles_typos():
@@ -52,3 +69,25 @@ def test_merge_strength_progression_points_keeps_same_day_heaviest():
     merged = merge_strength_progression_points(points)
     assert len(merged) == 1
     assert merged[0]["max_weight"] == 35
+
+
+def test_merge_strength_progression_points_merges_parenthetical_notes():
+    points = [
+        {"date": "2026-07-01", "exercise": "Leg press (the weight is on addition to weight of machine)", "max_weight": 75},
+        {"date": "2026-07-04", "exercise": "Leg press", "max_weight": 70},
+    ]
+    merged = merge_strength_progression_points(points)
+    assert len(merged) == 2
+    assert all(row["exercise"] == "Leg press" for row in merged)
+    by_date = {row["date"]: row["max_weight"] for row in merged}
+    assert by_date["2026-07-01"] == 75
+    assert by_date["2026-07-04"] == 70
+
+
+def test_cluster_prefers_clean_name_without_notes():
+    names = [
+        "Leg press",
+        "Leg press (the weight is on addition to weight of machine)",
+    ]
+    clusters = cluster_exercise_names(names)
+    assert clusters[names[1]] == "Leg press"

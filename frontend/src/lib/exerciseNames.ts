@@ -1,10 +1,24 @@
 import type { ExerciseAssessment } from '@/lib/api'
 
 const FUZZY_MATCH_THRESHOLD = 0.88
+const MIN_PREFIX_MATCH_LEN = 4
 
-export function normalizeExerciseKey(name: string): string {
+const PAREN_RE = /\([^)]*\)/g
+const BRACKET_RE = /\[[^\]]*\]/g
+
+export function extractExerciseBaseName(name: string): string {
   return name
     .trim()
+    .replace(PAREN_RE, '')
+    .replace(BRACKET_RE, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[,\-–—]+$/, '')
+    .trim()
+}
+
+export function normalizeExerciseKey(name: string): string {
+  return extractExerciseBaseName(name)
     .toLowerCase()
     .replace(/[-_]/g, ' ')
     .replace(/[^\w\s]/g, '')
@@ -12,11 +26,22 @@ export function normalizeExerciseKey(name: string): string {
     .trim()
 }
 
+function prefixEquivalent(shorter: string, longer: string): boolean {
+  if (shorter.length < MIN_PREFIX_MATCH_LEN) return false
+  if (!longer.startsWith(shorter)) return false
+  if (longer.length === shorter.length) return true
+  return longer[shorter.length] === ' '
+}
+
 function exerciseSimilarity(a: string, b: string): number {
   const left = normalizeExerciseKey(a)
   const right = normalizeExerciseKey(b)
   if (!left || !right) return 0
   if (left === right) return 1
+
+  const shorter = left.length <= right.length ? left : right
+  const longer = left.length <= right.length ? right : left
+  if (prefixEquivalent(shorter, longer)) return 1
 
   const maxLen = Math.max(left.length, right.length)
   if (maxLen === 0) return 1

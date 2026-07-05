@@ -7,19 +7,52 @@ import re
 from collections import Counter
 
 FUZZY_MATCH_THRESHOLD = 0.88
+MIN_PREFIX_MATCH_LEN = 4
 
 _PUNCTUATION_RE = re.compile(r"[^\w\s]")
 _WHITESPACE_RE = re.compile(r"\s+")
+_PAREN_RE = re.compile(r"\([^)]*\)")
+_BRACKET_RE = re.compile(r"\[[^\]]*\]")
+
+
+def extract_exercise_base_name(name: str) -> str:
+    """Drop inline notes like 'Leg press (machine weight extra)'."""
+    if not name:
+        return ""
+    cleaned = name.strip()
+    cleaned = _PAREN_RE.sub("", cleaned)
+    cleaned = _BRACKET_RE.sub("", cleaned)
+    cleaned = _WHITESPACE_RE.sub(" ", cleaned).strip(" -–—,")
+    return cleaned
 
 
 def normalize_exercise_key(name: str) -> str:
     """Canonical key: lowercase, no punctuation, collapsed whitespace."""
     if not name:
         return ""
-    cleaned = name.strip().lower().replace("-", " ").replace("_", " ")
+    cleaned = extract_exercise_base_name(name)
+    cleaned = cleaned.lower().replace("-", " ").replace("_", " ")
     cleaned = _PUNCTUATION_RE.sub("", cleaned)
     cleaned = _WHITESPACE_RE.sub(" ", cleaned).strip()
     return cleaned
+
+
+def _fuzzy_ratio(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+def _prefix_equivalent(shorter: str, longer: str) -> bool:
+    if len(shorter) < MIN_PREFIX_MATCH_LEN:
+        return False
+    if not longer.startswith(shorter):
+        return False
+    if len(longer) == len(shorter):
+        return True
+    return longer[len(shorter)] == " "
 
 
 def exercise_similarity(a: str, b: str) -> float:
@@ -30,7 +63,12 @@ def exercise_similarity(a: str, b: str) -> float:
         return 0.0
     if na == nb:
         return 1.0
-    return difflib.SequenceMatcher(None, na, nb).ratio()
+
+    shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
+    if _prefix_equivalent(shorter, longer):
+        return 1.0
+
+    return _fuzzy_ratio(na, nb)
 
 
 def exercise_names_equivalent(
@@ -96,7 +134,15 @@ def cluster_exercise_names(
 
     mapping: dict[str, str] = {}
     for members in clusters.values():
-        canonical = max(members, key=lambda n: (name_counts.get(n, 0), len(n)))
+        canonical = min(
+            members,
+            key=lambda n: (
+                -name_counts.get(n, 0),
+                "(" in n or "[" in n,
+                len(normalize_exercise_key(n)),
+                len(n),
+            ),
+        )
         for member in members:
             mapping[member] = canonical
     return mapping
