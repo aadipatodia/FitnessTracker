@@ -3,7 +3,6 @@ import {
 } from 'recharts'
 import { Target, TrendingDown, TrendingUp, Minus, Sparkles } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { formatDate } from '@/lib/utils'
 import type { ExerciseAssessment } from '@/lib/api'
 
@@ -45,6 +44,13 @@ const TREND_CONFIG = {
   },
 } as const
 
+type TrendKey = keyof typeof TREND_CONFIG
+
+function normalizeTrend(trend: string): TrendKey {
+  if (trend in TREND_CONFIG) return trend as TrendKey
+  return 'plateau'
+}
+
 export function groupStrengthByExercise(
   points: StrengthProgressPoint[],
 ): Record<string, { date: string; max_weight: number }[]> {
@@ -60,7 +66,7 @@ export function groupStrengthByExercise(
 }
 
 function ExerciseAssessmentPanel({ assessment }: { assessment: ExerciseAssessment }) {
-  const trend = TREND_CONFIG[assessment.trend] ?? TREND_CONFIG.plateau
+  const trend = TREND_CONFIG[normalizeTrend(assessment.trend)]
   const TrendIcon = trend.icon
 
   return (
@@ -118,28 +124,22 @@ export function ExerciseProgressCharts({
 
   if (exercises.length === 0) {
     return (
-      <ScrollReveal>
-        <Card>
-          <CardContent className="py-12 text-center text-empty">{emptyMessage}</CardContent>
-        </Card>
-      </ScrollReveal>
+      <Card>
+        <CardContent className="py-12 text-center text-muted-foreground">{emptyMessage}</CardContent>
+      </Card>
     )
   }
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {exercises.map((name, i) => (
-        <ScrollReveal
-          key={name}
-          delay={revealDelay(i % 6, 90)}
-          animation={i % 2 === 0 ? 'slide-left' : 'slide-right'}
-        >
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={chartHeight}>
+        <Card key={name}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">{name}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="w-full" style={{ height: chartHeight }}>
+              <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={byExercise[name]}>
                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
                   <XAxis dataKey="date" tickFormatter={(d) => formatDate(d)} stroke={CHART_AXIS} fontSize={13} tick={{ fill: CHART_AXIS }} />
@@ -159,12 +159,12 @@ export function ExerciseProgressCharts({
                   />
                 </LineChart>
               </ResponsiveContainer>
-              {assessmentByExercise[name] && (
-                <ExerciseAssessmentPanel assessment={assessmentByExercise[name]} />
-              )}
-            </CardContent>
-          </Card>
-        </ScrollReveal>
+            </div>
+            {assessmentByExercise[name] && (
+              <ExerciseAssessmentPanel assessment={assessmentByExercise[name]} />
+            )}
+          </CardContent>
+        </Card>
       ))}
     </div>
   )

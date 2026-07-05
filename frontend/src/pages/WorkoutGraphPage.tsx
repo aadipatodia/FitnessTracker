@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, DashboardCharts } from '@/lib/api'
 import { ExerciseProgressCharts } from '@/components/ExerciseProgressCharts'
 import { PageHeader } from '@/components/PageHeader'
-import { ScrollReveal } from '@/components/ScrollReveal'
+import { Card, CardContent } from '@/components/ui/card'
 
 const PERIOD_OPTIONS = [
   { label: 'Last 30 days', value: 30 },
@@ -15,12 +15,18 @@ export function WorkoutGraphPage() {
   const [days, setDays] = useState(365)
   const [charts, setCharts] = useState<DashboardCharts | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
+    setError(null)
     api.getCharts(days)
       .then(setCharts)
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err)
+        setError(err instanceof Error ? err.message : 'Failed to load workout graphs')
+        setCharts(null)
+      })
       .finally(() => setLoading(false))
   }, [days])
 
@@ -46,15 +52,22 @@ export function WorkoutGraphPage() {
         <div className="flex items-center justify-center h-64">
           <div className="luxury-spinner" />
         </div>
+      ) : error ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-destructive">{error}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Check that the backend is running, then refresh this page.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <ScrollReveal animation="blur-up">
-          <ExerciseProgressCharts
-            strengthProgression={charts?.strength_progression ?? []}
-            exerciseAssessments={charts?.exercise_assessments ?? []}
-            chartHeight={280}
-            emptyMessage="No workout data yet. Log a workout to see your progress graphs."
-          />
-        </ScrollReveal>
+        <ExerciseProgressCharts
+          strengthProgression={charts?.strength_progression ?? []}
+          exerciseAssessments={charts?.exercise_assessments ?? []}
+          chartHeight={280}
+          emptyMessage="No workout data yet. Log a workout to see your progress graphs."
+        />
       )}
     </div>
   )
