@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date, datetime
 from typing import Optional
 
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.activity_log import log_action, summarize_titles
 from app.auth import get_current_user
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.models.user import User
 from app.models.coaching import CoachingInsight, InsightType
 from app.schemas import CoachingInsightResponse, CoachAnalysisRequest, DashboardStats, DashboardCharts
@@ -47,6 +48,33 @@ def _insight_matches(
     if analysis_type and meta.get("analysis_type") != analysis_type:
         return False
     return True
+
+
+async def _gather_coaching_data_async(
+    user_id: int,
+    *,
+    days: int,
+    target_date: date,
+    analysis_type: str,
+    client_datetime: datetime | None,
+) -> dict:
+    """Run heavy analytics off the event loop with a dedicated DB session."""
+
+    def _run() -> dict:
+        db = SessionLocal()
+        try:
+            return gather_coaching_data(
+                db,
+                user_id,
+                days=days,
+                target_date=target_date,
+                analysis_type=analysis_type,
+                client_datetime=client_datetime,
+            )
+        finally:
+            db.close()
+
+    return await asyncio.to_thread(_run)
 
 
 def _delete_existing_insights(
@@ -100,8 +128,7 @@ async def analyze(
     current_user: User = Depends(get_current_user),
 ):
     analysis_date = request.analysis_date or date.today()
-    user_data = gather_coaching_data(
-        db,
+    user_data = await _gather_coaching_data_async(
         current_user.id,
         days=7 if request.analysis_type == "weekly" else 1,
         target_date=analysis_date,

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import re
@@ -111,6 +112,11 @@ def _generate_json(operation: str, user_input, prompt: str, fallback: dict) -> d
         return fallback
 
 
+async def _generate_json_async(operation: str, user_input, prompt: str, fallback: dict) -> dict:
+    """Run blocking Gemini HTTP calls off the event loop so other requests stay responsive."""
+    return await asyncio.to_thread(_generate_json, operation, user_input, prompt, fallback)
+
+
 async def estimate_meal_nutrition(food_input: str) -> dict:
     """Use Gemini to parse a meal description and estimate nutrition for each item."""
     fallback = {
@@ -159,7 +165,7 @@ Return ONLY valid JSON with no markdown:
   ]
 }}"""
 
-    return _generate_json("meal_nutrition", {"food_input": food_input}, prompt, fallback)
+    return await _generate_json_async("meal_nutrition", {"food_input": food_input}, prompt, fallback)
 
 
 async def estimate_cardio_calories(
@@ -191,7 +197,7 @@ Return ONLY valid JSON (no markdown):
   "notes": "brief one-line reasoning"
 }}"""
 
-    return _generate_json(
+    return await _generate_json_async(
         "cardio_calories",
         {
             "activity_name": activity_name,
@@ -362,7 +368,7 @@ Insight type MUST be one of: daily, weekly, progression, nutrition, goal_estimat
 
 The first insight MUST be a concrete action plan with numbers from calorie_balance. Be specific: mention exact protein numbers, calories consumed/burned/net, weight/rep details from that day's workout only, recovery quality for that day."""
 
-    return _generate_json(
+    return await _generate_json_async(
         f"coaching_{analysis_type}",
         {"analysis_type": analysis_type, "user_data": user_data},
         prompt,
@@ -405,7 +411,7 @@ Return ONLY valid JSON (no markdown):
 
 Tailor tips to their stated end goal, category, age, and gender when provided. Be specific and practical. Keep each tip under 120 characters."""
 
-    return _generate_json(
+    return await _generate_json_async(
         "goal_guidance",
         {"goal_type": goal_type, "end_goal": end_goal, "gender": gender, "age": age},
         prompt,
@@ -551,7 +557,7 @@ async def evaluate_goal_plan(goal_data: dict) -> dict:
         )
     )
 
-    result = _generate_json(
+    result = await _generate_json_async(
         "goal_evaluate",
         enriched,
         f"""You are an expert fitness coach assessing a user's goal plan.
