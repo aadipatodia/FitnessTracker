@@ -35,6 +35,19 @@ from app.services.analytics import (
 
 RECENT_SESSIONS_STORED = 8
 RECENT_SESSIONS_FOR_AI = 4
+SEMANTIC_CLUSTER_VERSION = 2
+
+
+def _load_semantic_cluster_cache(raw: dict | None) -> tuple[dict[str, str], int]:
+    if not raw:
+        return {}, 0
+    if "mapping" in raw:
+        return raw.get("mapping") or {}, int(raw.get("version") or 0)
+    return raw, 1
+
+
+def _save_semantic_cluster_cache(mapping: dict[str, str]) -> dict:
+    return {"version": SEMANTIC_CLUSTER_VERSION, "mapping": mapping}
 
 
 def refresh_semantic_exercise_clusters(
@@ -51,15 +64,16 @@ def refresh_semantic_exercise_clusters(
     if not user:
         return {}, False
 
-    cached = user.exercise_name_clusters or {}
+    cached, cache_version = _load_semantic_cluster_cache(user.exercise_name_clusters)
+    stale_prompt = cache_version < SEMANTIC_CLUSTER_VERSION
     missing = [name for name in unique if name not in cached]
-    if not missing:
+    if not stale_prompt and not missing:
         return cached, False
 
     from app.services.gemini import resolve_exercise_name_clusters
 
     refreshed = resolve_exercise_name_clusters(unique)
-    user.exercise_name_clusters = refreshed
+    user.exercise_name_clusters = _save_semantic_cluster_cache(refreshed)
     db.flush()
     return refreshed, True
 

@@ -879,15 +879,17 @@ Exercise names to analyze:
 
 Group names that refer to the SAME exercise the user likely performed. Merge inconsistent naming for one movement, for example:
 - "Cable chest press" and "Cable cross fly" when they clearly describe the same cable chest exercise the user logs on different days
+- "Walking Lunges with dumbells in each hand" and "Lunges (reps are for each leg)" — same lunge movement; notes about dumbbells or per-leg reps are logging detail, not a different exercise
 - "Lat pulldown" and "Lat pull down"
 - "Leg press" and "Leg press machine"
 
 Do NOT merge genuinely different exercises, for example:
+- "Single leg Leg Extension" and "Leg Extension" — unilateral vs bilateral are different exercises even though the muscle and machine are similar
 - "Bench press" and "Incline bench press"
 - "Hammer curl" and "Preacher curl"
 - "Cable fly" and "Cable row" (different movements)
 
-When unsure, keep exercises separate.
+When unsure, keep exercises separate. Parenthetical notes (equipment, rep counting style, machine notes) often indicate the same exercise; unilateral vs bilateral, incline vs flat, or different movement patterns usually indicate different exercises.
 
 Return ONLY valid JSON (no markdown):
 {{
