@@ -486,6 +486,7 @@ export interface ChartDataPoint {
 
 export interface ExerciseAssessment {
   exercise: string
+  exercise_key?: string
   current_date: string
   current_weight_kg: number | null
   current_reps: number | null

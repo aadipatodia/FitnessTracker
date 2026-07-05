@@ -388,6 +388,7 @@ class StrengthProgressPoint(BaseModel):
 
 class ExerciseAssessment(BaseModel):
     exercise: str
+    exercise_key: str = ""
     current_date: str
     current_weight_kg: Optional[float] = None
     current_reps: Optional[int] = None

@@ -693,9 +693,13 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
     from app.models.exercise_progress import ExerciseProgressSummary
     from app.services.exercise_progress_cache import (
         assessments_from_cache,
+        backfill_exercise_cache_for_charts,
         bootstrap_user_cache,
         ensure_progress_current,
+        map_assessments_to_chart_exercises,
     )
+
+    chart_exercise_names = list({point.exercise for point in strength_progression})
 
     has_cache = (
         db.query(ExerciseProgressSummary.id)
@@ -715,8 +719,16 @@ async def get_dashboard_charts(db: Session, user_id: int, days: int = 30) -> Das
         if workouts:
             bootstrap_user_cache(db, user_id)
 
-    await ensure_progress_current(db, user_id)
-    exercise_assessments = assessments_from_cache(db, user_id, start_date)
+    synced_keys = backfill_exercise_cache_for_charts(db, user_id, chart_exercise_names)
+    await ensure_progress_current(db, user_id, synced_keys or None)
+    cached_assessments = assessments_from_cache(db, user_id, start_date)
+    exercise_assessments = map_assessments_to_chart_exercises(
+        chart_exercise_names,
+        cached_assessments,
+        db,
+        user_id,
+        start_date,
+    )
 
     return DashboardCharts(
         weight_trend=weight_trend,
@@ -933,7 +945,9 @@ def _exercise_matches_goal(exercise: str, goal: FitnessGoal | None) -> bool:
 
 
 def _normalize_exercise_key(name: str) -> str:
-    return name.strip().lower()
+    from app.services.exercise_names import normalize_exercise_key
+
+    return normalize_exercise_key(name)
 
 
 def _resolve_next_session_target(
@@ -1168,6 +1182,7 @@ def build_exercise_assessments(
 
         assessments.append(ExerciseAssessment(
             exercise=exercise,
+            exercise_key=_normalize_exercise_key(exercise),
             current_date=current["date"],
             current_weight_kg=cw,
             current_reps=cr,

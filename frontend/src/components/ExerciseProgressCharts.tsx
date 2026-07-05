@@ -4,6 +4,7 @@ import {
 import { Target, TrendingDown, TrendingUp, Minus, Sparkles } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate } from '@/lib/utils'
+import { findAssessmentForExercise } from '@/lib/exerciseNames'
 import type { ExerciseAssessment } from '@/lib/api'
 
 const CHART_COLORS = ['#c9a962', '#e8d5b5', '#a8893a', '#d4b872', '#8a7140', '#f5e6c8', '#b8954a']
@@ -118,9 +119,7 @@ export function ExerciseProgressCharts({
 }) {
   const byExercise = groupStrengthByExercise(strengthProgression)
   const exercises = Object.keys(byExercise).sort((a, b) => a.localeCompare(b))
-  const assessmentByExercise = Object.fromEntries(
-    exerciseAssessments.map((a) => [a.exercise, a]),
-  )
+  const usedAssessmentKeys = new Set<string>()
 
   if (exercises.length === 0) {
     return (
@@ -132,7 +131,13 @@ export function ExerciseProgressCharts({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      {exercises.map((name, i) => (
+      {exercises.map((name, i) => {
+        const assessment = findAssessmentForExercise(
+          name,
+          exerciseAssessments,
+          usedAssessmentKeys,
+        )
+        return (
         <Card key={name}>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">{name}</CardTitle>
@@ -160,12 +165,11 @@ export function ExerciseProgressCharts({
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            {assessmentByExercise[name] && (
-              <ExerciseAssessmentPanel assessment={assessmentByExercise[name]} />
-            )}
+            {assessment && <ExerciseAssessmentPanel assessment={assessment} />}
           </CardContent>
         </Card>
-      ))}
+        )
+      })}
     </div>
   )
 }

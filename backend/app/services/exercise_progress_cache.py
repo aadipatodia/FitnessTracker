@@ -11,6 +11,12 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.exercise_progress import ExerciseProgressSummary
 from app.models.workout import Workout, WorkoutExercise, ExerciseSet
 from app.schemas import ExerciseAssessment
+from app.services.exercise_names import (
+    cluster_exercise_names,
+    exercise_names_equivalent,
+    find_best_exercise_match,
+    normalize_exercise_key,
+)
 from app.services.analytics import (
     _best_set_for_exercise,
     _build_fallback_next_session_targets,
@@ -329,6 +335,7 @@ def assessment_from_row(row: ExerciseProgressSummary, goal) -> ExerciseAssessmen
 
     return ExerciseAssessment(
         exercise=row.exercise_name,
+        exercise_key=row.exercise_key,
         current_date=current["date"],
         current_weight_kg=row.current_weight_kg,
         current_reps=row.current_reps,
@@ -451,6 +458,185 @@ def bootstrap_user_cache(db: Session, user_id: int) -> list[str]:
         db.rollback()
         return []
     return keys
+
+
+def _all_exercise_names_for_user(db: Session, user_id: int) -> list[str]:
+    rows = (
+        db.query(WorkoutExercise.exercise_name)
+        .join(Workout, Workout.id == WorkoutExercise.workout_id)
+        .filter(Workout.user_id == user_id)
+        .distinct()
+        .all()
+    )
+    return [row.exercise_name for row in rows if row.exercise_name]
+
+
+def _exercise_in_cluster(exercise_name: str, member_names: set[str]) -> bool:
+    for member in member_names:
+        if exercise_names_equivalent(exercise_name, member):
+            return True
+    return False
+
+
+def _sessions_for_exercise_cluster(
+    workouts: list[Workout],
+    member_names: set[str],
+) -> list[dict]:
+    sessions: list[dict] = []
+    for workout in workouts:
+        for ex in workout.exercises:
+            if not _exercise_in_cluster(ex.exercise_name, member_names):
+                continue
+            session = _session_from_exercise(workout, ex)
+            if session:
+                sessions.append(session)
+    sessions.sort(key=lambda s: (s["date"], s.get("workout_id", 0)))
+    return sessions
+
+
+def resync_exercise_cluster(
+    db: Session,
+    user_id: int,
+    canonical_name: str,
+    member_names: set[str],
+) -> ExerciseProgressSummary | None:
+    """Rebuild cached history for a fuzzy cluster of exercise name spellings."""
+    canonical_key = normalize_exercise_key(canonical_name)
+    member_keys = {normalize_exercise_key(name) for name in member_names}
+    workouts = (
+        db.query(Workout)
+        .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
+        .filter(Workout.user_id == user_id)
+        .order_by(Workout.workout_date, Workout.id)
+        .all()
+    )
+    sessions = _sessions_for_exercise_cluster(workouts, member_names)
+    if not sessions:
+        for key in member_keys:
+            existing = _find_progress_row(db, user_id, key)
+            if existing:
+                db.delete(existing)
+        return None
+
+    row = _get_or_create_row(db, user_id, canonical_key)
+    _apply_sessions_to_row(row, canonical_name, sessions)
+    for key in member_keys:
+        if key == canonical_key:
+            continue
+        stale = _find_progress_row(db, user_id, key)
+        if stale and stale.id != row.id:
+            db.delete(stale)
+    return row
+
+
+def backfill_exercise_cache_for_charts(
+    db: Session,
+    user_id: int,
+    chart_exercise_names: list[str],
+) -> list[str]:
+    """Ensure cached summaries exist for every exercise shown on charts."""
+    if not chart_exercise_names:
+        return []
+
+    workout_names = _all_exercise_names_for_user(db, user_id)
+    cache_rows = (
+        db.query(ExerciseProgressSummary)
+        .filter(ExerciseProgressSummary.user_id == user_id)
+        .all()
+    )
+    cache_names = [row.exercise_name for row in cache_rows if row.exercise_name]
+    all_names = list(dict.fromkeys(chart_exercise_names + workout_names + cache_names))
+    clusters = cluster_exercise_names(all_names)
+
+    canonical_groups: dict[str, set[str]] = {}
+    for name, canonical in clusters.items():
+        canonical_groups.setdefault(canonical, set()).add(name)
+
+    chart_canonicals = {clusters.get(name, name) for name in chart_exercise_names}
+    synced_keys: list[str] = []
+    for canonical in chart_canonicals:
+        members = canonical_groups.get(canonical, {canonical})
+        row = resync_exercise_cluster(db, user_id, canonical, members)
+        if row:
+            synced_keys.append(row.exercise_key)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return []
+    return synced_keys
+
+
+def _find_assessment_for_chart_exercise(
+    chart_name: str,
+    assessments: list[ExerciseAssessment],
+    used_indices: set[int],
+) -> tuple[int, ExerciseAssessment] | None:
+    chart_key = normalize_exercise_key(chart_name)
+    for idx, assessment in enumerate(assessments):
+        if idx in used_indices:
+            continue
+        if normalize_exercise_key(assessment.exercise) == chart_key:
+            return idx, assessment
+        if assessment.exercise_key == chart_key:
+            return idx, assessment
+
+    candidate_names = [a.exercise for idx, a in enumerate(assessments) if idx not in used_indices]
+    match_name = find_best_exercise_match(chart_name, candidate_names)
+    if not match_name:
+        return None
+    for idx, assessment in enumerate(assessments):
+        if idx in used_indices:
+            continue
+        if assessment.exercise == match_name:
+            return idx, assessment
+    return None
+
+
+def map_assessments_to_chart_exercises(
+    chart_exercise_names: list[str],
+    assessments: list[ExerciseAssessment],
+    db: Session,
+    user_id: int,
+    start_date: date | None,
+) -> list[ExerciseAssessment]:
+    """Return one assessment per chart exercise, aligned by normalized/fuzzy name."""
+    unique_chart_names = sorted(set(chart_exercise_names))
+    used_indices: set[int] = set()
+    mapped: list[ExerciseAssessment] = []
+
+    for chart_name in unique_chart_names:
+        match = _find_assessment_for_chart_exercise(chart_name, assessments, used_indices)
+        if match:
+            idx, assessment = match
+            used_indices.add(idx)
+            if assessment.exercise != chart_name:
+                assessment = assessment.model_copy(update={"exercise": chart_name})
+            mapped.append(assessment)
+            continue
+
+        goal = get_active_goal(db, user_id)
+        workouts_q = (
+            db.query(Workout)
+            .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
+            .filter(Workout.user_id == user_id)
+        )
+        if start_date:
+            workouts_q = workouts_q.filter(Workout.workout_date >= start_date)
+        fallback_assessments = build_exercise_assessments(
+            workouts_q.order_by(Workout.workout_date).all(),
+            goal,
+        )
+        for assessment in fallback_assessments:
+            if exercise_names_equivalent(assessment.exercise, chart_name):
+                mapped.append(assessment.model_copy(update={
+                    "exercise": chart_name,
+                    "exercise_key": normalize_exercise_key(chart_name),
+                }))
+                break
+
+    return mapped
 
 
 def build_assessments_from_workouts_fallback(

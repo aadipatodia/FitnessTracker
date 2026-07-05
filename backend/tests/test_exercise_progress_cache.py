@@ -83,6 +83,7 @@ def test_compact_payload_limits_recent_sessions():
 
 def test_normalize_exercise_key():
     assert _normalize_exercise_key("  Deadlift ") == "deadlift"
+    assert _normalize_exercise_key("Hammer-Curl") == "hammer curl"
 
 
 def test_unique_exercise_keys_dedupes_case_variants():
