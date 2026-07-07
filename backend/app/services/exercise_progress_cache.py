@@ -35,7 +35,7 @@ from app.services.analytics import (
 
 RECENT_SESSIONS_STORED = 8
 RECENT_SESSIONS_FOR_AI = 4
-SEMANTIC_CLUSTER_VERSION = 3
+SEMANTIC_CLUSTER_VERSION = 4
 
 
 def _load_semantic_cluster_cache(raw: dict | None) -> tuple[dict[str, str], int]:

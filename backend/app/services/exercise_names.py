@@ -45,6 +45,26 @@ def _fuzzy_ratio(a: str, b: str) -> float:
     return difflib.SequenceMatcher(None, a, b).ratio()
 
 
+# First word after a shared prefix that signals a different lift (not equipment notes).
+_COMPOUND_SUFFIX_FIRST_WORDS = frozenset({
+    "and",
+    "pull",
+    "jerk",
+    "snatch",
+    "press",
+    "squat",
+    "deadlift",
+    "row",
+    "curl",
+    "fly",
+    "raise",
+    "extension",
+    "lunge",
+    "thrust",
+    "balance",
+})
+
+
 def _prefix_equivalent(shorter: str, longer: str) -> bool:
     if len(shorter) < MIN_PREFIX_MATCH_LEN:
         return False
@@ -52,7 +72,18 @@ def _prefix_equivalent(shorter: str, longer: str) -> bool:
         return False
     if len(longer) == len(shorter):
         return True
-    return longer[len(shorter)] == " "
+    if longer[len(shorter)] != " ":
+        return False
+
+    suffix = longer[len(shorter) :].strip()
+    if not suffix:
+        return True
+
+    first_word = suffix.split()[0]
+    if first_word in _COMPOUND_SUFFIX_FIRST_WORDS:
+        return False
+
+    return True
 
 
 def exercise_similarity(a: str, b: str) -> float:

@@ -1017,16 +1017,10 @@ def _round_weight_up(kg: float, increment: float = WEIGHT_INCREMENT_KG) -> float
     return math.ceil(kg / increment) * increment
 
 
-def _format_set(weight: float | None, reps: int | None) -> str:
-    if weight and reps:
-        w = _round_weight(weight) if weight >= WEIGHT_INCREMENT_KG else weight
-        return f"{w:g} kg × {reps} reps"
-    if weight:
-        w = _round_weight(weight) if weight >= WEIGHT_INCREMENT_KG else weight
-        return f"{w:g} kg"
-    if reps:
-        return f"{reps} reps"
-    return "—"
+def _format_set(weight: float | None, reps: int | None, exercise_name: str | None = None) -> str:
+    from app.services.exercise_display import format_set_display
+
+    return format_set_display(weight, reps, exercise_name)
 
 
 def _exercise_matches_goal(exercise: str, goal: FitnessGoal | None) -> bool:

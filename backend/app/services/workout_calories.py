@@ -1,6 +1,7 @@
 """Estimate calories burned from logged strength workouts."""
 
 from app.models.workout import Workout
+from app.services.exercise_display import movements_per_combo_round
 
 DEFAULT_BODY_WEIGHT_KG = 75.0
 STRENGTH_TRAINING_MET = 5.0  # vigorous resistance training (Compendium of Physical Activities)
@@ -13,10 +14,17 @@ MIN_WORKOUT_MINUTES = 15
 TARGET_WORKOUT_MINUTES = 45  # baseline session length for minimum burn target
 
 
-def _set_active_seconds(reps: int | None, time_seconds: int | None) -> int:
+def _set_active_seconds(
+    reps: int | None,
+    time_seconds: int | None,
+    exercise_name: str | None = None,
+) -> int:
     if time_seconds:
         return time_seconds
     if reps:
+        movements = movements_per_combo_round(exercise_name)
+        if movements:
+            return max(30, reps * movements * SECONDS_PER_REP)
         return max(30, reps * SECONDS_PER_REP)
     return DEFAULT_SET_ACTIVE_SECONDS
 
@@ -28,7 +36,11 @@ def estimate_workout_duration_minutes(workout: Workout) -> int:
     total_seconds = 0
     for exercise in workout.exercises:
         for exercise_set in exercise.sets:
-            total_seconds += _set_active_seconds(exercise_set.reps, exercise_set.time_seconds)
+            total_seconds += _set_active_seconds(
+                exercise_set.reps,
+                exercise_set.time_seconds,
+                exercise.exercise_name,
+            )
             total_seconds += exercise_set.rest_seconds or DEFAULT_REST_SECONDS
         total_seconds += SETUP_SECONDS_PER_EXERCISE
 

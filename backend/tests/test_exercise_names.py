@@ -36,6 +36,19 @@ def test_exercise_names_equivalent_handles_typos():
     assert not exercise_names_equivalent("Hammer curl", "Bench Press")
 
 
+def test_clean_and_clean_and_jerk_are_distinct():
+    assert not exercise_names_equivalent("Clean", "Clean and Jerk")
+    assert not exercise_names_equivalent("Clean", "Clean Pull")
+    clusters = cluster_exercise_names(["Clean", "Clean and Jerk", "Clean Pull"])
+    assert clusters["Clean"] == "Clean"
+    assert clusters["Clean and Jerk"] == "Clean and Jerk"
+    assert clusters["Clean Pull"] == "Clean Pull"
+
+
+def test_leg_press_still_merges_with_machine_variant():
+    assert exercise_names_equivalent("Leg press", "Leg press machine")
+
+
 def test_find_best_exercise_match_prefers_closest_spelling():
     candidates = ["Front Raises", "Bench Press", "Hammer curl"]
     assert find_best_exercise_match("Hammer curll", candidates) == "Hammer curl"

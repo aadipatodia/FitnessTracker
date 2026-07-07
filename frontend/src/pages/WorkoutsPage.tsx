@@ -7,6 +7,7 @@ import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
+import { formatExerciseSet, repUnit } from '@/lib/exerciseDisplay'
 
 interface ExerciseForm {
   exercise_name: string
@@ -287,7 +288,7 @@ export function WorkoutsPage() {
                               <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
                             </div>
                             <div className="space-y-1">
-                              <span className="text-label text-[0.75rem] normal-case">Reps</span>
+                              <span className="text-label text-[0.75rem] normal-case">{repUnit(ex.exercise_name) === 'rounds' ? 'Rounds' : 'Reps'}</span>
                               <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
                             </div>
                             <div className="space-y-1 col-span-2">
@@ -301,7 +302,7 @@ export function WorkoutsPage() {
 
                     <div className="hidden md:block space-y-2">
                       <div className="grid grid-cols-5 gap-2 text-label text-[0.75rem] normal-case px-1">
-                        <span>Set</span><span>Weight (kg)</span><span>Reps</span><span>Rest (s)</span><span></span>
+                        <span>Set</span><span>Weight (kg)</span><span>{repUnit(ex.exercise_name) === 'rounds' ? 'Rounds' : 'Reps'}</span><span>Rest (s)</span><span></span>
                       </div>
                       {ex.sets.map((set, setIdx) => (
                         <div key={setIdx} className="grid grid-cols-5 gap-2">
@@ -391,7 +392,7 @@ export function WorkoutsPage() {
                       <div className="mt-2 flex flex-wrap gap-2">
                         {ex.sets.map((s) => (
                           <span key={s.id} className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-1.5 text-sm font-medium text-foreground">
-                            {s.weight_kg ? `${s.weight_kg}kg × ` : ''}{s.reps ?? '?'} reps
+                            {formatExerciseSet(ex.exercise_name, s)}
                           </span>
                         ))}
                       </div>

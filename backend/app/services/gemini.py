@@ -892,6 +892,7 @@ Do NOT merge genuinely different exercises:
 - Unilateral vs bilateral: "Single leg Leg Extension" vs "Leg Extension"
 - Different angles/variants: "Bench press" vs "Incline bench press"
 - Different movements: "Hammer curl" vs "Preacher curl"; "Cable fly" vs "Cable row"
+- Olympic lift phases: "Clean" vs "Clean and Jerk"; "Clean" vs "Clean pull"; "Snatch" vs "Power snatch"
 
 When unsure, keep exercises separate — but never split the same name over capitalization or parenthetical notes alone.
 
