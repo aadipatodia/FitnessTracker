@@ -237,7 +237,7 @@ def test_exclude_today_before_7pm():
     ist = timezone(timedelta(hours=5, minutes=30))
     requested = date(2026, 3, 3)
     morning = datetime(2026, 3, 3, 10, 0, tzinfo=ist)
-    ctx = resolve_analysis_dates(requested, morning)
+    ctx = resolve_analysis_dates(requested, morning, analysis_type="weekly")
     assert ctx["exclude_requested_day"] is True
     assert ctx["stats_through_date"] == "2026-03-02"
     assert "2026-03-02" in ctx["stats_basis_note"]
@@ -252,7 +252,7 @@ def test_include_today_after_7pm():
     ist = timezone(timedelta(hours=5, minutes=30))
     requested = date(2026, 3, 3)
     evening = datetime(2026, 3, 3, 20, 0, tzinfo=ist)
-    ctx = resolve_analysis_dates(requested, evening)
+    ctx = resolve_analysis_dates(requested, evening, analysis_type="weekly")
     assert ctx["exclude_requested_day"] is False
     assert ctx["stats_through_date"] == "2026-03-03"
 
@@ -265,9 +265,24 @@ def test_past_date_always_included():
     ist = timezone(timedelta(hours=5, minutes=30))
     requested = date(2026, 3, 1)
     morning = datetime(2026, 3, 3, 10, 0, tzinfo=ist)
-    ctx = resolve_analysis_dates(requested, morning)
+    ctx = resolve_analysis_dates(requested, morning, analysis_type="weekly")
     assert ctx["exclude_requested_day"] is False
     assert ctx["stats_through_date"] == "2026-03-01"
+
+
+def test_daily_includes_today_before_7pm():
+    from datetime import datetime, timezone, timedelta
+
+    from app.services.analytics import resolve_analysis_dates
+
+    ist = timezone(timedelta(hours=5, minutes=30))
+    requested = date(2026, 3, 3)
+    morning = datetime(2026, 3, 3, 10, 0, tzinfo=ist)
+    ctx = resolve_analysis_dates(requested, morning, analysis_type="daily")
+    assert ctx["exclude_requested_day"] is False
+    assert ctx["is_partial_day"] is True
+    assert ctx["stats_through_date"] == "2026-03-03"
+    assert "partial day" in ctx["stats_basis_note"]
 
 
 def test_journey_progress_scales_with_user_timeline():

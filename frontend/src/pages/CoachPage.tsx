@@ -31,7 +31,7 @@ const sectionConfig: { type: AnalysisType; title: string; description: string }[
   {
     type: 'daily',
     title: 'Daily Analysis',
-    description: 'Workouts, diet, and recovery for one day. Before 7pm, uses yesterday\'s completed data.',
+    description: 'Workouts, diet, and recovery for the selected day. Today includes data logged so far.',
   },
   {
     type: 'weekly',
@@ -299,10 +299,11 @@ export function CoachPage() {
             <div>
               <h3 className="text-lg font-semibold text-foreground">How it works</h3>
               <p className="mt-2 text-body-secondary">
-                Analyze Day covers one completed day of data. Weekly Summary uses a compact 7-day rollup.
-                Goal Progress reviews everything since your goal was set. If you run analysis before 7pm on
-                the selected date, today&apos;s partial stats are excluded and results are based on data
-                through the previous day — you&apos;ll see a note on each insight.
+                Analyze Day covers one calendar day — select today to review what you&apos;ve logged so far.
+                Weekly Summary uses a compact 7-day rollup. Goal Progress reviews everything since your goal
+                was set. For weekly and goal analysis before 7pm on the selected date, today&apos;s partial
+                stats are excluded and results run through the previous day — you&apos;ll see a note on each
+                insight.
               </p>
             </div>
           </div>

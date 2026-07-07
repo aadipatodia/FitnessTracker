@@ -613,7 +613,7 @@ def get_dashboard_stats(
     user_id: int,
     client_datetime: datetime | None = None,
 ) -> DashboardStats:
-    date_ctx = resolve_analysis_dates(date.today(), client_datetime)
+    date_ctx = resolve_analysis_dates(date.today(), client_datetime, analysis_type="goal")
     stats_through = date.fromisoformat(date_ctx["stats_through_date"])
 
     goal = get_active_goal(db, user_id)
@@ -1552,10 +1552,14 @@ def build_goal_progress_summary(db: Session, user_id: int, as_of_date: date) -> 
 def resolve_analysis_dates(
     requested_date: date,
     client_now: datetime | None = None,
+    *,
+    analysis_type: str = "weekly",
 ) -> dict:
     """
-    When analysis is requested for today before 7pm (client local time),
+    Weekly and goal analysis: when requested for today before 7pm (client local time),
     exclude that incomplete day and use stats through yesterday.
+
+    Daily analysis always uses the requested date — partial data when today is selected.
     """
     now = client_now or datetime.now()
     if now.tzinfo is not None:
@@ -1564,13 +1568,20 @@ def resolve_analysis_dates(
         local_now = now
 
     today = local_now.date()
-    exclude_requested_day = requested_date == today and local_now.hour < ANALYSIS_CUTOFF_HOUR
+    apply_cutoff = analysis_type in ("weekly", "goal")
+    exclude_requested_day = (
+        apply_cutoff
+        and requested_date == today
+        and local_now.hour < ANALYSIS_CUTOFF_HOUR
+    )
     stats_through = requested_date - timedelta(days=1) if exclude_requested_day else requested_date
+    is_partial_day = analysis_type == "daily" and requested_date == today
 
     ctx = {
         "requested_date": str(requested_date),
         "stats_through_date": str(stats_through),
         "exclude_requested_day": exclude_requested_day,
+        "is_partial_day": is_partial_day,
         "analysis_cutoff_hour": ANALYSIS_CUTOFF_HOUR,
     }
     ctx["stats_basis_note"] = _build_stats_basis_note(ctx)
@@ -1585,7 +1596,12 @@ def _build_stats_basis_note(ctx: dict) -> str:
             f"Data for {ctx['requested_date']} is not included because the day has just started "
             f"(before {ctx['analysis_cutoff_hour']}:00)."
         )
-    return f"Analysis based on stats through {through}."
+    if ctx.get("is_partial_day"):
+        return (
+            f"Analysis based on stats logged for {through} so far "
+            f"(partial day — still in progress)."
+        )
+    return f"Analysis based on stats for {through}."
 
 
 def gather_coaching_data(
@@ -1598,7 +1614,7 @@ def gather_coaching_data(
 ) -> dict:
     """Aggregate user data for AI coaching analysis."""
     requested_date = target_date or date.today()
-    date_ctx = resolve_analysis_dates(requested_date, client_datetime)
+    date_ctx = resolve_analysis_dates(requested_date, client_datetime, analysis_type=analysis_type)
     end_date = date.fromisoformat(date_ctx["stats_through_date"])
     goal = get_active_goal(db, user_id)
     metric = (
@@ -1633,7 +1649,7 @@ def gather_coaching_data(
             "recovery_score_info": RECOVERY_SCORE_INFO,
         }
 
-    # Daily — single day (stats_through_date when today is excluded before 7pm)
+    # Daily — single day (always the requested date; partial when today is selected)
     body_weight = get_user_body_weight_kg(db, user_id)
     day_workouts = get_workouts_for_date(db, user_id, end_date)
     nutrition = get_nutrition_for_date(db, user_id, end_date)
