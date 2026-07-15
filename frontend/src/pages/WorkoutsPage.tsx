@@ -7,7 +7,7 @@ import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
-import { formatExerciseSet, repUnit, buildComboName } from '@/lib/exerciseDisplay'
+import { formatExerciseSet, repUnit, buildComboName, isComboExercise, formatComboSetLines } from '@/lib/exerciseDisplay'
 import { useLocalDraft, loadDraft, clearDraft } from '@/hooks/useLocalDraft'
 
 interface ComboSegment {
@@ -608,11 +608,19 @@ export function WorkoutsPage() {
                     <div key={ex.id}>
                       <p className="font-semibold text-base text-foreground">{ex.exercise_name}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {ex.sets.map((s) => (
-                          <span key={s.id} className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-1.5 text-sm font-medium text-foreground">
-                            {formatExerciseSet(ex.exercise_name, s)}
-                          </span>
-                        ))}
+                        {ex.sets.flatMap((s) =>
+                          isComboExercise(ex.exercise_name)
+                            ? formatComboSetLines(ex.exercise_name, s).map((line, i) => (
+                                <span key={`${s.id}-${i}`} className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-1.5 text-sm font-medium text-foreground">
+                                  {line}
+                                </span>
+                              ))
+                            : [
+                                <span key={s.id} className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-1.5 text-sm font-medium text-foreground">
+                                  {formatExerciseSet(ex.exercise_name, s)}
+                                </span>,
+                              ],
+                        )}
                       </div>
                     </div>
                   ))}

@@ -86,3 +86,14 @@ export function formatExerciseSet(
   if (chain.length) return [base, ...chain].join(' → ')
   return base
 }
+
+/** For a combo set, one "Set N of <exercise>" line per component exercise. */
+export function formatComboSetLines(
+  exerciseName: string,
+  set: { set_number: number; weight_kg?: number | null },
+): string[] {
+  return parseComboSegments(exerciseName).map(([count, label]) => {
+    const weightPart = set.weight_kg ? `${set.weight_kg}kg × ` : ''
+    return `Set ${set.set_number} of ${label} — ${weightPart}${count} reps`
+  })
+}
