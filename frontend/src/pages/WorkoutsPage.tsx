@@ -7,35 +7,76 @@ import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
-import { formatExerciseSet, repUnit } from '@/lib/exerciseDisplay'
+import { formatExerciseSet, repUnit, buildComboName } from '@/lib/exerciseDisplay'
+import { useLocalDraft, loadDraft, clearDraft } from '@/hooks/useLocalDraft'
+
+interface ComboSegment {
+  count: number
+  name: string
+}
 
 interface ExerciseForm {
   exercise_name: string
+  isCombo: boolean
+  comboSegments: ComboSegment[]
   sets: SetCreate[]
+}
+
+function exerciseNameFor(ex: ExerciseForm): string {
+  return ex.isCombo ? buildComboName(ex.comboSegments) : ex.exercise_name
+}
+
+const WORKOUT_DRAFT_KEY = 'fitai_workout_draft'
+const CARDIO_DRAFT_KEY = 'fitai_cardio_draft'
+
+interface WorkoutDraft {
+  workoutDate: string
+  workoutName: string
+  notes: string
+  exercises: ExerciseForm[]
+}
+
+interface CardioDraft {
+  cardioDate: string
+  cardioType: string
+  cardioDuration: string
 }
 
 export function WorkoutsPage() {
   const [viewDate, setViewDate] = useState(todayISO())
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [cardioLogs, setCardioLogs] = useState<ActivityLog[]>([])
-  const [showForm, setShowForm] = useState(false)
-  const [showCardioForm, setShowCardioForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingCardio, setSavingCardio] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [deletingCardioId, setDeletingCardioId] = useState<number | null>(null)
 
-  const [workoutDate, setWorkoutDate] = useState(todayISO())
-  const [workoutName, setWorkoutName] = useState('')
-  const [notes, setNotes] = useState('')
-  const [exercises, setExercises] = useState<ExerciseForm[]>([
-    { exercise_name: '', sets: [{ set_number: 1, weight_kg: undefined, reps: undefined, rest_seconds: 60 }] },
-  ])
+  const blankExercise = (): ExerciseForm => ({
+    exercise_name: '',
+    isCombo: false,
+    comboSegments: [],
+    sets: [{ set_number: 1, weight_kg: undefined, reps: undefined, rest_seconds: 60 }],
+  })
 
-  const [cardioDate, setCardioDate] = useState(todayISO())
-  const [cardioType, setCardioType] = useState('')
-  const [cardioDuration, setCardioDuration] = useState('')
+  const workoutDraft = loadDraft<WorkoutDraft>(WORKOUT_DRAFT_KEY)
+  const cardioDraft = loadDraft<CardioDraft>(CARDIO_DRAFT_KEY)
+
+  const [workoutDate, setWorkoutDate] = useState(workoutDraft?.workoutDate ?? todayISO())
+  const [workoutName, setWorkoutName] = useState(workoutDraft?.workoutName ?? '')
+  const [notes, setNotes] = useState(workoutDraft?.notes ?? '')
+  const [exercises, setExercises] = useState<ExerciseForm[]>(
+    workoutDraft?.exercises ?? [blankExercise()],
+  )
+  const [showForm, setShowForm] = useState(Boolean(workoutDraft))
+
+  const [cardioDate, setCardioDate] = useState(cardioDraft?.cardioDate ?? todayISO())
+  const [cardioType, setCardioType] = useState(cardioDraft?.cardioType ?? '')
+  const [cardioDuration, setCardioDuration] = useState(cardioDraft?.cardioDuration ?? '')
+  const [showCardioForm, setShowCardioForm] = useState(Boolean(cardioDraft))
+
+  useLocalDraft(WORKOUT_DRAFT_KEY, { workoutDate, workoutName, notes, exercises }, showForm)
+  useLocalDraft(CARDIO_DRAFT_KEY, { cardioDate, cardioType, cardioDuration }, showCardioForm)
 
   const loadDay = useCallback(async (date: string) => {
     const [w, c] = await Promise.all([
@@ -59,10 +100,7 @@ export function WorkoutsPage() {
   }
 
   const addExercise = () => {
-    setExercises([...exercises, {
-      exercise_name: '',
-      sets: [{ set_number: 1, weight_kg: undefined, reps: undefined, rest_seconds: 60 }],
-    }])
+    setExercises([...exercises, blankExercise()])
   }
 
   const addSet = (exIdx: number) => {
@@ -99,6 +137,88 @@ export function WorkoutsPage() {
     setExercises(updated)
   }
 
+  const toggleCombo = (exIdx: number) => {
+    const updated = [...exercises]
+    const ex = updated[exIdx]
+    updated[exIdx] = {
+      ...ex,
+      isCombo: true,
+      comboSegments: [{ count: 1, name: ex.exercise_name }, { count: 1, name: '' }],
+    }
+    setExercises(updated)
+  }
+
+  const removeCombo = (exIdx: number) => {
+    const updated = [...exercises]
+    const ex = updated[exIdx]
+    updated[exIdx] = {
+      ...ex,
+      isCombo: false,
+      exercise_name: ex.comboSegments[0]?.name ?? '',
+      comboSegments: [],
+    }
+    setExercises(updated)
+  }
+
+  const addComboSegment = (exIdx: number) => {
+    const updated = [...exercises]
+    updated[exIdx].comboSegments = [...updated[exIdx].comboSegments, { count: 1, name: '' }]
+    setExercises(updated)
+  }
+
+  const updateComboSegment = (exIdx: number, segIdx: number, field: 'count' | 'name', value: string) => {
+    const updated = [...exercises]
+    const segments = [...updated[exIdx].comboSegments]
+    segments[segIdx] = {
+      ...segments[segIdx],
+      [field]: field === 'count' ? (value ? parseInt(value, 10) : 1) : value,
+    }
+    updated[exIdx].comboSegments = segments
+    setExercises(updated)
+  }
+
+  const removeComboSegment = (exIdx: number, segIdx: number) => {
+    const updated = [...exercises]
+    updated[exIdx].comboSegments = updated[exIdx].comboSegments.filter((_, i) => i !== segIdx)
+    setExercises(updated)
+  }
+
+  const addDropStage = (exIdx: number, setIdx: number) => {
+    const updated = [...exercises]
+    const set = updated[exIdx].sets[setIdx]
+    const stages = set.drop_stages ?? []
+    updated[exIdx].sets[setIdx] = {
+      ...set,
+      drop_stages: [...stages, { stage_number: stages.length + 2, weight_kg: undefined, reps: undefined }],
+    }
+    setExercises(updated)
+  }
+
+  const updateDropStage = (
+    exIdx: number,
+    setIdx: number,
+    stageIdx: number,
+    field: 'weight_kg' | 'reps',
+    value: string,
+  ) => {
+    const updated = [...exercises]
+    const set = updated[exIdx].sets[setIdx]
+    const stages = [...(set.drop_stages ?? [])]
+    stages[stageIdx] = { ...stages[stageIdx], [field]: value ? parseFloat(value) : undefined }
+    updated[exIdx].sets[setIdx] = { ...set, drop_stages: stages }
+    setExercises(updated)
+  }
+
+  const removeDropStage = (exIdx: number, setIdx: number, stageIdx: number) => {
+    const updated = [...exercises]
+    const set = updated[exIdx].sets[setIdx]
+    const stages = (set.drop_stages ?? [])
+      .filter((_, i) => i !== stageIdx)
+      .map((s, i) => ({ ...s, stage_number: i + 2 }))
+    updated[exIdx].sets[setIdx] = { ...set, drop_stages: stages }
+    setExercises(updated)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
@@ -107,16 +227,19 @@ export function WorkoutsPage() {
         workout_date: workoutDate,
         name: workoutName || undefined,
         notes: notes || undefined,
-        exercises: exercises.filter(e => e.exercise_name).map((ex, i) => ({
-          exercise_name: ex.exercise_name,
-          order_index: i,
-          sets: ex.sets.map(s => ({
-            set_number: s.set_number,
-            weight_kg: s.weight_kg,
-            reps: s.reps,
-            rest_seconds: s.rest_seconds,
+        exercises: exercises
+          .filter(ex => (ex.isCombo ? ex.comboSegments.some(s => s.name.trim()) : ex.exercise_name))
+          .map((ex, i) => ({
+            exercise_name: exerciseNameFor(ex),
+            order_index: i,
+            sets: ex.sets.map(s => ({
+              set_number: s.set_number,
+              weight_kg: s.weight_kg,
+              reps: s.reps,
+              rest_seconds: s.rest_seconds,
+              drop_stages: s.drop_stages,
+            })),
           })),
-        })),
       })
       if (workout.workout_date === viewDate) {
         setWorkouts([workout, ...workouts])
@@ -124,14 +247,30 @@ export function WorkoutsPage() {
         await loadDay(viewDate)
       }
       setShowForm(false)
-      setExercises([{ exercise_name: '', sets: [{ set_number: 1, rest_seconds: 60 }] }])
+      setExercises([blankExercise()])
       setWorkoutName('')
       setNotes('')
+      clearDraft(WORKOUT_DRAFT_KEY)
     } catch (err) {
       console.error(err)
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCancelWorkoutForm = () => {
+    setShowForm(false)
+    setExercises([blankExercise()])
+    setWorkoutName('')
+    setNotes('')
+    clearDraft(WORKOUT_DRAFT_KEY)
+  }
+
+  const handleCancelCardioForm = () => {
+    setShowCardioForm(false)
+    setCardioType('')
+    setCardioDuration('')
+    clearDraft(CARDIO_DRAFT_KEY)
   }
 
   const handleDelete = async (id: number) => {
@@ -166,6 +305,7 @@ export function WorkoutsPage() {
       setShowCardioForm(false)
       setCardioType('')
       setCardioDuration('')
+      clearDraft(CARDIO_DRAFT_KEY)
     } catch (err) {
       console.error(err)
     } finally {
@@ -254,21 +394,68 @@ export function WorkoutsPage() {
                 </div>
               </div>
 
-              {exercises.map((ex, exIdx) => (
+              {exercises.map((ex, exIdx) => {
+                const previewName = exerciseNameFor(ex)
+                return (
                 <div key={exIdx} className="rounded-lg border border-border p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={ex.exercise_name}
-                      onChange={(e) => updateExercise(exIdx, 'exercise_name', e.target.value)}
-                      placeholder="Exercise name (e.g. Preacher Curl)"
-                      className="flex-1"
-                    />
-                    {exercises.length > 1 && (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeExercise(exIdx)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                  {!ex.isCombo ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={ex.exercise_name}
+                        onChange={(e) => updateExercise(exIdx, 'exercise_name', e.target.value)}
+                        placeholder="Exercise name (e.g. Preacher Curl)"
+                        className="flex-1"
+                      />
+                      <Button type="button" variant="outline" size="sm" onClick={() => toggleCombo(exIdx)}>
+                        Combination exercise
                       </Button>
-                    )}
-                  </div>
+                      {exercises.length > 1 && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeExercise(exIdx)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 rounded-lg border border-dashed border-primary/40 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-label text-[0.75rem] normal-case">
+                          Combination exercise — done back-to-back with no rest in between
+                        </span>
+                        {exercises.length > 1 && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeExercise(exIdx)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                      {ex.comboSegments.map((seg, segIdx) => (
+                        <div key={segIdx} className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            className="w-20"
+                            value={seg.count}
+                            onChange={(e) => updateComboSegment(exIdx, segIdx, 'count', e.target.value)}
+                            aria-label="Reps for this exercise"
+                          />
+                          <Input
+                            value={seg.name}
+                            onChange={(e) => updateComboSegment(exIdx, segIdx, 'name', e.target.value)}
+                            placeholder={segIdx === 0 ? 'e.g. Incline Bicep Curl' : 'e.g. Hammer Curl'}
+                            className="flex-1"
+                          />
+                          {ex.comboSegments.length > 1 && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeComboSegment(exIdx, segIdx)} aria-label="Remove exercise from combo">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => addComboSegment(exIdx)}>+ Add exercise</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeCombo(exIdx)}>Remove combination</Button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <div className="space-y-3 md:hidden">
@@ -288,7 +475,7 @@ export function WorkoutsPage() {
                               <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
                             </div>
                             <div className="space-y-1">
-                              <span className="text-label text-[0.75rem] normal-case">{repUnit(ex.exercise_name) === 'rounds' ? 'Rounds' : 'Reps'}</span>
+                              <span className="text-label text-[0.75rem] normal-case">{repUnit(previewName) === 'rounds' ? 'Rounds' : 'Reps'}</span>
                               <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
                             </div>
                             <div className="space-y-1 col-span-2">
@@ -296,34 +483,65 @@ export function WorkoutsPage() {
                               <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
                             </div>
                           </div>
+
+                          {(set.drop_stages ?? []).map((stage, stageIdx) => (
+                            <div key={stageIdx} className="ml-2 border-l-2 border-primary/30 pl-3 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-label text-[0.75rem] normal-case">Drop {stageIdx + 1}</span>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => removeDropStage(exIdx, setIdx, stageIdx)} aria-label="Remove drop stage">
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input type="number" step="0.5" placeholder="Weight (kg)" value={stage.weight_kg ?? ''} onChange={(e) => updateDropStage(exIdx, setIdx, stageIdx, 'weight_kg', e.target.value)} />
+                                <Input type="number" placeholder="Reps" value={stage.reps ?? ''} onChange={(e) => updateDropStage(exIdx, setIdx, stageIdx, 'reps', e.target.value)} />
+                              </div>
+                            </div>
+                          ))}
+                          <Button type="button" variant="ghost" size="sm" onClick={() => addDropStage(exIdx, setIdx)}>+ Drop set</Button>
                         </div>
                       ))}
                     </div>
 
                     <div className="hidden md:block space-y-2">
                       <div className="grid grid-cols-5 gap-2 text-label text-[0.75rem] normal-case px-1">
-                        <span>Set</span><span>Weight (kg)</span><span>{repUnit(ex.exercise_name) === 'rounds' ? 'Rounds' : 'Reps'}</span><span>Rest (s)</span><span></span>
+                        <span>Set</span><span>Weight (kg)</span><span>{repUnit(previewName) === 'rounds' ? 'Rounds' : 'Reps'}</span><span>Rest (s)</span><span></span>
                       </div>
                       {ex.sets.map((set, setIdx) => (
-                        <div key={setIdx} className="grid grid-cols-5 gap-2">
-                          <Input value={set.set_number} disabled className="text-center" />
-                          <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
-                          <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
-                          <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
-                          {ex.sets.length > 1 ? (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => removeSet(exIdx, setIdx)} aria-label="Delete set">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          ) : (
-                            <span />
-                          )}
+                        <div key={setIdx} className="space-y-1">
+                          <div className="grid grid-cols-5 gap-2">
+                            <Input value={set.set_number} disabled className="text-center" />
+                            <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
+                            <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
+                            <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
+                            {ex.sets.length > 1 ? (
+                              <Button type="button" variant="ghost" size="sm" onClick={() => removeSet(exIdx, setIdx)} aria-label="Delete set">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            ) : (
+                              <span />
+                            )}
+                          </div>
+                          {(set.drop_stages ?? []).map((stage, stageIdx) => (
+                            <div key={stageIdx} className="grid grid-cols-5 gap-2">
+                              <span className="text-meta text-xs flex items-center justify-center">↳ Drop {stageIdx + 1}</span>
+                              <Input type="number" step="0.5" placeholder="Weight" value={stage.weight_kg ?? ''} onChange={(e) => updateDropStage(exIdx, setIdx, stageIdx, 'weight_kg', e.target.value)} />
+                              <Input type="number" placeholder="Reps" value={stage.reps ?? ''} onChange={(e) => updateDropStage(exIdx, setIdx, stageIdx, 'reps', e.target.value)} />
+                              <span />
+                              <Button type="button" variant="ghost" size="sm" onClick={() => removeDropStage(exIdx, setIdx, stageIdx)} aria-label="Remove drop stage">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button type="button" variant="ghost" size="sm" onClick={() => addDropStage(exIdx, setIdx)}>+ Drop set</Button>
                         </div>
                       ))}
                     </div>
                     <Button type="button" variant="ghost" size="sm" onClick={() => addSet(exIdx)}>+ Add set</Button>
                   </div>
                 </div>
-              ))}
+                )
+              })}
 
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={addExercise}>+ Add exercise</Button>
@@ -335,7 +553,7 @@ export function WorkoutsPage() {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="button" variant="outline" onClick={handleCancelWorkoutForm} className="w-full sm:w-auto">Cancel</Button>
                 <Button type="submit" disabled={saving} className="w-full sm:w-auto">{saving ? 'Saving...' : 'Save workout'}</Button>
               </div>
             </form>
@@ -454,7 +672,7 @@ export function WorkoutsPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button type="button" variant="outline" onClick={() => setShowCardioForm(false)} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="button" variant="outline" onClick={handleCancelCardioForm} className="w-full sm:w-auto">Cancel</Button>
                 <Button type="submit" disabled={savingCardio} className="w-full sm:w-auto">
                   {savingCardio ? 'Saving...' : 'Save cardio'}
                 </Button>

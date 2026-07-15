@@ -50,5 +50,25 @@ class ExerciseSet(Base):
     rest_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     exercise: Mapped["WorkoutExercise"] = relationship("WorkoutExercise", back_populates="sets")
+    drop_stages: Mapped[list["DropSetStage"]] = relationship(
+        "DropSetStage",
+        back_populates="set",
+        cascade="all, delete-orphan",
+        order_by="DropSetStage.stage_number",
+    )
+
+
+class DropSetStage(Base):
+    """An additional weight/rep stage within a drop set (stage 1 is the ExerciseSet itself)."""
+
+    __tablename__ = "drop_set_stages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    set_id: Mapped[int] = mapped_column(Integer, ForeignKey("exercise_sets.id"), nullable=False)
+    stage_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    set: Mapped["ExerciseSet"] = relationship("ExerciseSet", back_populates="drop_stages")
 
 from app.models.user import User  # noqa: E402

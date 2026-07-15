@@ -50,6 +50,19 @@ def ensure_schema() -> None:
             "CREATE INDEX IF NOT EXISTS ix_exercise_progress_user "
             "ON exercise_progress_summaries (user_id)"
         ))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS drop_set_stages (
+                id SERIAL PRIMARY KEY,
+                set_id INTEGER NOT NULL REFERENCES exercise_sets(id) ON DELETE CASCADE,
+                stage_number INTEGER NOT NULL,
+                weight_kg FLOAT,
+                reps INTEGER
+            )
+        """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_drop_set_stages_set_id "
+            "ON drop_set_stages (set_id)"
+        ))
 
 
 class Base(DeclarativeBase):

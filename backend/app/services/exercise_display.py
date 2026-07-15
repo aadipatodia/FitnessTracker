@@ -81,6 +81,7 @@ def format_set_display(
     weight_kg: float | None,
     reps: int | None,
     exercise_name: str | None = None,
+    drop_stages: list[tuple[float | None, int | None]] | None = None,
 ) -> str:
     unit = rep_unit(exercise_name)
     if weight_kg and reps:
@@ -95,5 +96,17 @@ def format_set_display(
     if reps and is_combo_exercise(exercise_name):
         totals = format_combo_totals(exercise_name, reps)
         if totals:
-            return f"{base} ({totals})"
+            base = f"{base} ({totals})"
+
+    if drop_stages:
+        chain = []
+        for stage_weight, stage_reps in drop_stages:
+            if stage_weight and stage_reps:
+                chain.append(f"{stage_weight:g} kg × {stage_reps}")
+            elif stage_weight:
+                chain.append(f"{stage_weight:g} kg")
+            elif stage_reps:
+                chain.append(f"{stage_reps}")
+        if chain:
+            return " → ".join([base, *chain])
     return base

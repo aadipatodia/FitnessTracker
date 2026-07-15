@@ -26,6 +26,13 @@ export function parseComboSegments(exerciseName: string): Array<[number, string]
   return segments
 }
 
+export function buildComboName(segments: Array<{ count: number; name: string }>): string {
+  return segments
+    .filter((s) => s.name.trim())
+    .map((s) => `${s.count || 1} ${s.name.trim()}`)
+    .join(' + ')
+}
+
 function pluralizeMovement(total: number, label: string): string {
   if (total === 1 || label.endsWith('s')) return label
   return `${label}s`
@@ -46,7 +53,11 @@ export function repUnit(exerciseName: string | undefined | null): 'rounds' | 're
 
 export function formatExerciseSet(
   exerciseName: string,
-  set: { weight_kg?: number | null; reps?: number | null },
+  set: {
+    weight_kg?: number | null
+    reps?: number | null
+    drop_stages?: Array<{ weight_kg?: number | null; reps?: number | null }>
+  },
 ): string {
   const unit = repUnit(exerciseName)
   const reps = set.reps
@@ -60,7 +71,18 @@ export function formatExerciseSet(
 
   if (reps && isComboExercise(exerciseName)) {
     const totals = formatComboTotals(exerciseName, reps)
-    if (totals) return `${base} (${totals})`
+    if (totals) base = `${base} (${totals})`
   }
+
+  const chain = (set.drop_stages ?? [])
+    .map((stage) => {
+      if (stage.weight_kg && stage.reps) return `${stage.weight_kg}kg × ${stage.reps}`
+      if (stage.weight_kg) return `${stage.weight_kg}kg`
+      if (stage.reps) return `${stage.reps}`
+      return null
+    })
+    .filter((s): s is string => Boolean(s))
+
+  if (chain.length) return [base, ...chain].join(' → ')
   return base
 }

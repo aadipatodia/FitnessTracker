@@ -117,12 +117,29 @@ class GoalResponse(BaseModel):
 
 
 # Workouts
+class DropStageCreate(BaseModel):
+    stage_number: int
+    weight_kg: Optional[float] = None
+    reps: Optional[int] = None
+
+
+class DropStageResponse(BaseModel):
+    id: int
+    stage_number: int
+    weight_kg: Optional[float]
+    reps: Optional[int]
+
+    class Config:
+        from_attributes = True
+
+
 class SetCreate(BaseModel):
     set_number: int
     weight_kg: Optional[float] = None
     reps: Optional[int] = None
     time_seconds: Optional[int] = None
     rest_seconds: Optional[int] = None
+    drop_stages: list[DropStageCreate] = []
 
 
 class ExerciseCreate(BaseModel):
@@ -147,6 +164,7 @@ class SetResponse(BaseModel):
     reps: Optional[int]
     time_seconds: Optional[int]
     rest_seconds: Optional[int]
+    drop_stages: list[DropStageResponse] = []
 
     class Config:
         from_attributes = True

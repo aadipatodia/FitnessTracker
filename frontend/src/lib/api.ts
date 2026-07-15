@@ -316,12 +316,19 @@ export interface GoalFeasibility {
   recommended_target_date?: string
 }
 
+export interface DropStageCreate {
+  stage_number: number
+  weight_kg?: number
+  reps?: number
+}
+
 export interface SetCreate {
   set_number: number
   weight_kg?: number
   reps?: number
   time_seconds?: number
   rest_seconds?: number
+  drop_stages?: DropStageCreate[]
 }
 
 export interface ExerciseCreate {
@@ -359,6 +366,12 @@ export interface Workout {
       reps?: number
       time_seconds?: number
       rest_seconds?: number
+      drop_stages?: {
+        id: number
+        stage_number: number
+        weight_kg?: number
+        reps?: number
+      }[]
     }[]
   }[]
 }

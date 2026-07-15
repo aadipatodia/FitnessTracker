@@ -7,8 +7,8 @@ from app.activity_log import log_action
 from app.auth import get_current_user
 from app.database import get_db
 from app.models.user import User
-from app.models.workout import Workout, WorkoutExercise, ExerciseSet
-from app.schemas import WorkoutCreate, WorkoutResponse, ExerciseResponse, SetResponse
+from app.models.workout import Workout, WorkoutExercise, ExerciseSet, DropSetStage
+from app.schemas import WorkoutCreate, WorkoutResponse, ExerciseResponse, SetResponse, DropStageResponse
 from app.services.analytics import get_user_body_weight_kg
 from app.services.exercise_progress_cache import (
     canonicalize_exercise_names_for_user,
@@ -57,19 +57,33 @@ async def create_workout(
         db.flush()
 
         for set_data in ex_data.sets:
-            db.add(ExerciseSet(
+            exercise_set = ExerciseSet(
                 exercise_id=exercise.id,
                 set_number=set_data.set_number,
                 weight_kg=set_data.weight_kg,
                 reps=set_data.reps,
                 time_seconds=set_data.time_seconds,
                 rest_seconds=set_data.rest_seconds,
-            ))
+            )
+            db.add(exercise_set)
+            db.flush()
+
+            for stage_data in set_data.drop_stages:
+                db.add(DropSetStage(
+                    set_id=exercise_set.id,
+                    stage_number=stage_data.stage_number,
+                    weight_kg=stage_data.weight_kg,
+                    reps=stage_data.reps,
+                ))
 
     db.commit()
     workout = (
         db.query(Workout)
-        .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
+        .options(
+            joinedload(Workout.exercises)
+            .joinedload(WorkoutExercise.sets)
+            .joinedload(ExerciseSet.drop_stages)
+        )
         .filter(Workout.id == workout.id, Workout.user_id == current_user.id)
         .first()
     )
@@ -99,7 +113,11 @@ def list_workouts(
 ):
     query = (
         db.query(Workout)
-        .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
+        .options(
+            joinedload(Workout.exercises)
+            .joinedload(WorkoutExercise.sets)
+            .joinedload(ExerciseSet.drop_stages)
+        )
         .filter(Workout.user_id == current_user.id)
     )
     if workout_date:
@@ -123,7 +141,11 @@ def get_workout(
 ):
     workout = (
         db.query(Workout)
-        .options(joinedload(Workout.exercises).joinedload(WorkoutExercise.sets))
+        .options(
+            joinedload(Workout.exercises)
+            .joinedload(WorkoutExercise.sets)
+            .joinedload(ExerciseSet.drop_stages)
+        )
         .filter(Workout.id == workout_id, Workout.user_id == current_user.id)
         .first()
     )
@@ -179,6 +201,15 @@ def _to_response(workout: Workout, body_weight_kg: float | None = None) -> Worko
                         reps=s.reps,
                         time_seconds=s.time_seconds,
                         rest_seconds=s.rest_seconds,
+                        drop_stages=[
+                            DropStageResponse(
+                                id=stage.id,
+                                stage_number=stage.stage_number,
+                                weight_kg=stage.weight_kg,
+                                reps=stage.reps,
+                            )
+                            for stage in sorted(s.drop_stages, key=lambda d: d.stage_number)
+                        ],
                     )
                     for s in sorted(ex.sets, key=lambda x: x.set_number)
                 ],
