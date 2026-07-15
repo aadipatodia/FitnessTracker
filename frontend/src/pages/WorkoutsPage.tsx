@@ -40,6 +40,16 @@ interface CardioDraft {
   cardioDuration: string
 }
 
+function isValidWorkoutDraft(draft: WorkoutDraft | null): draft is WorkoutDraft {
+  return Boolean(
+    draft &&
+      Array.isArray(draft.exercises) &&
+      draft.exercises.every(
+        (ex) => ex && Array.isArray(ex.members) && ex.members.length > 0 && typeof ex.members[0].exercise_name === 'string',
+      ),
+  )
+}
+
 export function WorkoutsPage() {
   const [viewDate, setViewDate] = useState(todayISO())
   const [workouts, setWorkouts] = useState<Workout[]>([])
@@ -55,7 +65,9 @@ export function WorkoutsPage() {
     members: [{ exercise_name: '', sets: [blankSet(1)] }],
   })
 
-  const workoutDraft = loadDraft<WorkoutDraft>(WORKOUT_DRAFT_KEY)
+  const rawWorkoutDraft = loadDraft<WorkoutDraft>(WORKOUT_DRAFT_KEY)
+  const workoutDraft = isValidWorkoutDraft(rawWorkoutDraft) ? rawWorkoutDraft : null
+  if (rawWorkoutDraft && !workoutDraft) clearDraft(WORKOUT_DRAFT_KEY)
   const cardioDraft = loadDraft<CardioDraft>(CARDIO_DRAFT_KEY)
 
   const [workoutDate, setWorkoutDate] = useState(workoutDraft?.workoutDate ?? todayISO())
