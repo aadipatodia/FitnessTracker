@@ -196,6 +196,21 @@ export function WorkoutsPage() {
     setExercises(updated)
   }
 
+  /** Combo rest is a single value shared by every member exercise's set for that round. */
+  const updateRoundRest = (exIdx: number, roundIdx: number, value: string) => {
+    const updated = [...exercises]
+    const restValue = value ? parseFloat(value) : undefined
+    updated[exIdx] = {
+      ...updated[exIdx],
+      members: updated[exIdx].members.map((m) => {
+        const sets = [...m.sets]
+        sets[roundIdx] = { ...sets[roundIdx], rest_seconds: restValue }
+        return { ...m, sets }
+      }),
+    }
+    setExercises(updated)
+  }
+
   const addDropStage = (exIdx: number, memberIdx: number, roundIdx: number) => {
     const updated = [...exercises]
     const members = [...updated[exIdx].members]
@@ -585,10 +600,6 @@ export function WorkoutsPage() {
                                       <span className="text-label text-[0.75rem] normal-case">Reps</span>
                                       <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateMemberSet(exIdx, memberIdx, roundIdx, 'reps', e.target.value)} />
                                     </div>
-                                    <div className="space-y-1 col-span-2">
-                                      <span className="text-label text-[0.75rem] normal-case">Rest (seconds)</span>
-                                      <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateMemberSet(exIdx, memberIdx, roundIdx, 'rest_seconds', e.target.value)} />
-                                    </div>
                                   </div>
                                   {(set.drop_stages ?? []).map((stage, stageIdx) => (
                                     <div key={stageIdx} className="ml-2 border-l-2 border-primary/30 pl-3 space-y-1">
@@ -608,6 +619,15 @@ export function WorkoutsPage() {
                                 </div>
                               )
                             })}
+                            <div className="space-y-1">
+                              <span className="text-label text-[0.75rem] normal-case">Rest after this round (seconds)</span>
+                              <Input
+                                type="number"
+                                placeholder="60"
+                                value={ex.members[0].sets[roundIdx]?.rest_seconds ?? ''}
+                                onChange={(e) => updateRoundRest(exIdx, roundIdx, e.target.value)}
+                              />
+                            </div>
                           </div>
                         ))}
                       </div>
