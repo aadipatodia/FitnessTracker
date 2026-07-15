@@ -7,23 +7,21 @@ import { ScrollReveal, revealDelay } from '@/components/ScrollReveal'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, todayISO } from '@/lib/utils'
-import { formatExerciseSet, repUnit, buildComboName, isComboExercise, formatComboSetLines } from '@/lib/exerciseDisplay'
+import { formatExerciseSet, repUnit } from '@/lib/exerciseDisplay'
 import { useLocalDraft, loadDraft, clearDraft } from '@/hooks/useLocalDraft'
 
-interface ComboSegment {
-  count: number
-  name: string
-}
-
-interface ExerciseForm {
+interface ComboMember {
   exercise_name: string
-  isCombo: boolean
-  comboSegments: ComboSegment[]
   sets: SetCreate[]
 }
 
-function exerciseNameFor(ex: ExerciseForm): string {
-  return ex.isCombo ? buildComboName(ex.comboSegments) : ex.exercise_name
+interface ExerciseForm {
+  isCombo: boolean
+  members: ComboMember[]
+}
+
+function blankSet(setNumber: number): SetCreate {
+  return { set_number: setNumber, weight_kg: undefined, reps: undefined, rest_seconds: 60 }
 }
 
 const WORKOUT_DRAFT_KEY = 'fitai_workout_draft'
@@ -53,10 +51,8 @@ export function WorkoutsPage() {
   const [deletingCardioId, setDeletingCardioId] = useState<number | null>(null)
 
   const blankExercise = (): ExerciseForm => ({
-    exercise_name: '',
     isCombo: false,
-    comboSegments: [],
-    sets: [{ set_number: 1, weight_kg: undefined, reps: undefined, rest_seconds: 60 }],
+    members: [{ exercise_name: '', sets: [blankSet(1)] }],
   })
 
   const workoutDraft = loadDraft<WorkoutDraft>(WORKOUT_DRAFT_KEY)
@@ -103,119 +99,137 @@ export function WorkoutsPage() {
     setExercises([...exercises, blankExercise()])
   }
 
-  const addSet = (exIdx: number) => {
-    const updated = [...exercises]
-    const setNum = updated[exIdx].sets.length + 1
-    updated[exIdx].sets.push({ set_number: setNum, weight_kg: undefined, reps: undefined, rest_seconds: 60 })
-    setExercises(updated)
-  }
-
-  const updateExercise = (exIdx: number, field: string, value: string) => {
-    const updated = [...exercises]
-    updated[exIdx] = { ...updated[exIdx], [field]: value }
-    setExercises(updated)
-  }
-
-  const updateSet = (exIdx: number, setIdx: number, field: string, value: string) => {
-    const updated = [...exercises]
-    updated[exIdx].sets[setIdx] = {
-      ...updated[exIdx].sets[setIdx],
-      [field]: value ? parseFloat(value) : undefined,
-    }
-    setExercises(updated)
-  }
-
   const removeExercise = (exIdx: number) => {
     setExercises(exercises.filter((_, i) => i !== exIdx))
   }
 
-  const removeSet = (exIdx: number, setIdx: number) => {
+  const updateMemberName = (exIdx: number, memberIdx: number, value: string) => {
     const updated = [...exercises]
-    updated[exIdx].sets = updated[exIdx].sets
-      .filter((_, i) => i !== setIdx)
-      .map((s, i) => ({ ...s, set_number: i + 1 }))
+    const members = [...updated[exIdx].members]
+    members[memberIdx] = { ...members[memberIdx], exercise_name: value }
+    updated[exIdx] = { ...updated[exIdx], members }
     setExercises(updated)
   }
+
+  const roundCountFor = (ex: ExerciseForm) => ex.members[0]?.sets.length ?? 1
 
   const toggleCombo = (exIdx: number) => {
     const updated = [...exercises]
     const ex = updated[exIdx]
-    updated[exIdx] = {
-      ...ex,
-      isCombo: true,
-      comboSegments: [{ count: 1, name: ex.exercise_name }, { count: 1, name: '' }],
+    if (ex.members.length > 1) {
+      updated[exIdx] = { ...ex, isCombo: true }
+    } else {
+      const rounds = roundCountFor(ex)
+      updated[exIdx] = {
+        ...ex,
+        isCombo: true,
+        members: [...ex.members, { exercise_name: '', sets: Array.from({ length: rounds }, (_, i) => blankSet(i + 1)) }],
+      }
     }
     setExercises(updated)
   }
 
   const removeCombo = (exIdx: number) => {
     const updated = [...exercises]
+    updated[exIdx] = { ...updated[exIdx], isCombo: false, members: [updated[exIdx].members[0]] }
+    setExercises(updated)
+  }
+
+  const addComboMember = (exIdx: number) => {
+    const updated = [...exercises]
     const ex = updated[exIdx]
+    const rounds = roundCountFor(ex)
     updated[exIdx] = {
       ...ex,
-      isCombo: false,
-      exercise_name: ex.comboSegments[0]?.name ?? '',
-      comboSegments: [],
+      members: [...ex.members, { exercise_name: '', sets: Array.from({ length: rounds }, (_, i) => blankSet(i + 1)) }],
     }
     setExercises(updated)
   }
 
-  const addComboSegment = (exIdx: number) => {
+  const removeComboMember = (exIdx: number, memberIdx: number) => {
     const updated = [...exercises]
-    updated[exIdx].comboSegments = [...updated[exIdx].comboSegments, { count: 1, name: '' }]
+    const remaining = updated[exIdx].members.filter((_, i) => i !== memberIdx)
+    updated[exIdx] = { ...updated[exIdx], isCombo: remaining.length > 1, members: remaining }
     setExercises(updated)
   }
 
-  const updateComboSegment = (exIdx: number, segIdx: number, field: 'count' | 'name', value: string) => {
+  const addRound = (exIdx: number) => {
     const updated = [...exercises]
-    const segments = [...updated[exIdx].comboSegments]
-    segments[segIdx] = {
-      ...segments[segIdx],
-      [field]: field === 'count' ? (value ? parseInt(value, 10) : 1) : value,
+    updated[exIdx] = {
+      ...updated[exIdx],
+      members: updated[exIdx].members.map(m => ({ ...m, sets: [...m.sets, blankSet(m.sets.length + 1)] })),
     }
-    updated[exIdx].comboSegments = segments
     setExercises(updated)
   }
 
-  const removeComboSegment = (exIdx: number, segIdx: number) => {
+  const removeRound = (exIdx: number, roundIdx: number) => {
     const updated = [...exercises]
-    updated[exIdx].comboSegments = updated[exIdx].comboSegments.filter((_, i) => i !== segIdx)
+    updated[exIdx] = {
+      ...updated[exIdx],
+      members: updated[exIdx].members.map(m => ({
+        ...m,
+        sets: m.sets.filter((_, i) => i !== roundIdx).map((s, i) => ({ ...s, set_number: i + 1 })),
+      })),
+    }
     setExercises(updated)
   }
 
-  const addDropStage = (exIdx: number, setIdx: number) => {
+  const updateMemberSet = (exIdx: number, memberIdx: number, roundIdx: number, field: string, value: string) => {
     const updated = [...exercises]
-    const set = updated[exIdx].sets[setIdx]
+    const members = [...updated[exIdx].members]
+    const sets = [...members[memberIdx].sets]
+    sets[roundIdx] = { ...sets[roundIdx], [field]: value ? parseFloat(value) : undefined }
+    members[memberIdx] = { ...members[memberIdx], sets }
+    updated[exIdx] = { ...updated[exIdx], members }
+    setExercises(updated)
+  }
+
+  const addDropStage = (exIdx: number, memberIdx: number, roundIdx: number) => {
+    const updated = [...exercises]
+    const members = [...updated[exIdx].members]
+    const sets = [...members[memberIdx].sets]
+    const set = sets[roundIdx]
     const stages = set.drop_stages ?? []
-    updated[exIdx].sets[setIdx] = {
+    sets[roundIdx] = {
       ...set,
       drop_stages: [...stages, { stage_number: stages.length + 2, weight_kg: undefined, reps: undefined }],
     }
+    members[memberIdx] = { ...members[memberIdx], sets }
+    updated[exIdx] = { ...updated[exIdx], members }
     setExercises(updated)
   }
 
   const updateDropStage = (
     exIdx: number,
-    setIdx: number,
+    memberIdx: number,
+    roundIdx: number,
     stageIdx: number,
     field: 'weight_kg' | 'reps',
     value: string,
   ) => {
     const updated = [...exercises]
-    const set = updated[exIdx].sets[setIdx]
+    const members = [...updated[exIdx].members]
+    const sets = [...members[memberIdx].sets]
+    const set = sets[roundIdx]
     const stages = [...(set.drop_stages ?? [])]
     stages[stageIdx] = { ...stages[stageIdx], [field]: value ? parseFloat(value) : undefined }
-    updated[exIdx].sets[setIdx] = { ...set, drop_stages: stages }
+    sets[roundIdx] = { ...set, drop_stages: stages }
+    members[memberIdx] = { ...members[memberIdx], sets }
+    updated[exIdx] = { ...updated[exIdx], members }
     setExercises(updated)
   }
 
-  const removeDropStage = (exIdx: number, setIdx: number, stageIdx: number) => {
+  const removeDropStage = (exIdx: number, memberIdx: number, roundIdx: number, stageIdx: number) => {
     const updated = [...exercises]
-    const set = updated[exIdx].sets[setIdx]
+    const members = [...updated[exIdx].members]
+    const sets = [...members[memberIdx].sets]
+    const set = sets[roundIdx]
     const stages = (set.drop_stages ?? [])
       .filter((_, i) => i !== stageIdx)
       .map((s, i) => ({ ...s, stage_number: i + 2 }))
-    updated[exIdx].sets[setIdx] = { ...set, drop_stages: stages }
+    sets[roundIdx] = { ...set, drop_stages: stages }
+    members[memberIdx] = { ...members[memberIdx], sets }
+    updated[exIdx] = { ...updated[exIdx], members }
     setExercises(updated)
   }
 
@@ -228,11 +242,11 @@ export function WorkoutsPage() {
         name: workoutName || undefined,
         notes: notes || undefined,
         exercises: exercises
-          .filter(ex => (ex.isCombo ? ex.comboSegments.some(s => s.name.trim()) : ex.exercise_name))
-          .map((ex, i) => ({
-            exercise_name: exerciseNameFor(ex),
+          .flatMap(ex => ex.members.filter(m => m.exercise_name.trim()))
+          .map((member, i) => ({
+            exercise_name: member.exercise_name,
             order_index: i,
-            sets: ex.sets.map(s => ({
+            sets: member.sets.map(s => ({
               set_number: s.set_number,
               weight_kg: s.weight_kg,
               reps: s.reps,
@@ -394,15 +408,13 @@ export function WorkoutsPage() {
                 </div>
               </div>
 
-              {exercises.map((ex, exIdx) => {
-                const previewName = exerciseNameFor(ex)
-                return (
+              {exercises.map((ex, exIdx) => (
                 <div key={exIdx} className="rounded-lg border border-border p-4 space-y-3">
                   {!ex.isCombo ? (
                     <div className="flex items-center gap-2">
                       <Input
-                        value={ex.exercise_name}
-                        onChange={(e) => updateExercise(exIdx, 'exercise_name', e.target.value)}
+                        value={ex.members[0].exercise_name}
+                        onChange={(e) => updateMemberName(exIdx, 0, e.target.value)}
                         placeholder="Exercise name (e.g. Preacher Curl)"
                         className="flex-1"
                       />
@@ -427,121 +439,171 @@ export function WorkoutsPage() {
                           </Button>
                         )}
                       </div>
-                      {ex.comboSegments.map((seg, segIdx) => (
-                        <div key={segIdx} className="flex items-center gap-2">
+                      {ex.members.map((member, memberIdx) => (
+                        <div key={memberIdx} className="flex items-center gap-2">
                           <Input
-                            type="number"
-                            min={1}
-                            className="w-20"
-                            value={seg.count}
-                            onChange={(e) => updateComboSegment(exIdx, segIdx, 'count', e.target.value)}
-                            aria-label="Reps for this exercise"
-                          />
-                          <Input
-                            value={seg.name}
-                            onChange={(e) => updateComboSegment(exIdx, segIdx, 'name', e.target.value)}
-                            placeholder={segIdx === 0 ? 'e.g. Incline Bicep Curl' : 'e.g. Hammer Curl'}
+                            value={member.exercise_name}
+                            onChange={(e) => updateMemberName(exIdx, memberIdx, e.target.value)}
+                            placeholder={memberIdx === 0 ? 'e.g. Incline Bicep Curl' : 'e.g. Hammer Curl'}
                             className="flex-1"
                           />
-                          {ex.comboSegments.length > 1 && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => removeComboSegment(exIdx, segIdx)} aria-label="Remove exercise from combo">
+                          {ex.members.length > 1 && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeComboMember(exIdx, memberIdx)} aria-label="Remove exercise from combo">
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           )}
                         </div>
                       ))}
                       <div className="flex flex-wrap gap-2">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => addComboSegment(exIdx)}>+ Add exercise</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => addComboMember(exIdx)}>+ Add exercise</Button>
                         <Button type="button" variant="ghost" size="sm" onClick={() => removeCombo(exIdx)}>Remove combination</Button>
                       </div>
                     </div>
                   )}
 
                   <div className="space-y-2">
-                    <div className="space-y-3 md:hidden">
-                      {ex.sets.map((set, setIdx) => (
-                        <div key={setIdx} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium">Set {set.set_number}</p>
-                            {ex.sets.length > 1 && (
-                              <Button type="button" variant="ghost" size="sm" onClick={() => removeSet(exIdx, setIdx)} aria-label="Delete set">
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <span className="text-label text-[0.75rem] normal-case">Weight (kg)</span>
-                              <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
-                            </div>
-                            <div className="space-y-1">
-                              <span className="text-label text-[0.75rem] normal-case">{repUnit(previewName) === 'rounds' ? 'Rounds' : 'Reps'}</span>
-                              <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
-                            </div>
-                            <div className="space-y-1 col-span-2">
-                              <span className="text-label text-[0.75rem] normal-case">Rest (seconds)</span>
-                              <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
-                            </div>
-                          </div>
-
-                          {(set.drop_stages ?? []).map((stage, stageIdx) => (
-                            <div key={stageIdx} className="ml-2 border-l-2 border-primary/30 pl-3 space-y-1">
+                    {!ex.isCombo ? (
+                      <>
+                        <div className="space-y-3 md:hidden">
+                          {ex.members[0].sets.map((set, roundIdx) => (
+                            <div key={roundIdx} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
                               <div className="flex items-center justify-between">
-                                <span className="text-label text-[0.75rem] normal-case">Drop {stageIdx + 1}</span>
-                                <Button type="button" variant="ghost" size="sm" onClick={() => removeDropStage(exIdx, setIdx, stageIdx)} aria-label="Remove drop stage">
-                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                </Button>
+                                <p className="text-sm font-medium">Set {set.set_number}</p>
+                                {ex.members[0].sets.length > 1 && (
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => removeRound(exIdx, roundIdx)} aria-label="Delete set">
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
                               </div>
                               <div className="grid grid-cols-2 gap-2">
-                                <Input type="number" step="0.5" placeholder="Weight (kg)" value={stage.weight_kg ?? ''} onChange={(e) => updateDropStage(exIdx, setIdx, stageIdx, 'weight_kg', e.target.value)} />
-                                <Input type="number" placeholder="Reps" value={stage.reps ?? ''} onChange={(e) => updateDropStage(exIdx, setIdx, stageIdx, 'reps', e.target.value)} />
+                                <div className="space-y-1">
+                                  <span className="text-label text-[0.75rem] normal-case">Weight (kg)</span>
+                                  <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateMemberSet(exIdx, 0, roundIdx, 'weight_kg', e.target.value)} />
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-label text-[0.75rem] normal-case">{repUnit(ex.members[0].exercise_name) === 'rounds' ? 'Rounds' : 'Reps'}</span>
+                                  <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateMemberSet(exIdx, 0, roundIdx, 'reps', e.target.value)} />
+                                </div>
+                                <div className="space-y-1 col-span-2">
+                                  <span className="text-label text-[0.75rem] normal-case">Rest (seconds)</span>
+                                  <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateMemberSet(exIdx, 0, roundIdx, 'rest_seconds', e.target.value)} />
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                          <Button type="button" variant="ghost" size="sm" onClick={() => addDropStage(exIdx, setIdx)}>+ Drop set</Button>
-                        </div>
-                      ))}
-                    </div>
 
-                    <div className="hidden md:block space-y-2">
-                      <div className="grid grid-cols-5 gap-2 text-label text-[0.75rem] normal-case px-1">
-                        <span>Set</span><span>Weight (kg)</span><span>{repUnit(previewName) === 'rounds' ? 'Rounds' : 'Reps'}</span><span>Rest (s)</span><span></span>
-                      </div>
-                      {ex.sets.map((set, setIdx) => (
-                        <div key={setIdx} className="space-y-1">
-                          <div className="grid grid-cols-5 gap-2">
-                            <Input value={set.set_number} disabled className="text-center" />
-                            <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'weight_kg', e.target.value)} />
-                            <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'reps', e.target.value)} />
-                            <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateSet(exIdx, setIdx, 'rest_seconds', e.target.value)} />
-                            {ex.sets.length > 1 ? (
-                              <Button type="button" variant="ghost" size="sm" onClick={() => removeSet(exIdx, setIdx)} aria-label="Delete set">
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            ) : (
-                              <span />
-                            )}
-                          </div>
-                          {(set.drop_stages ?? []).map((stage, stageIdx) => (
-                            <div key={stageIdx} className="grid grid-cols-5 gap-2">
-                              <span className="text-meta text-xs flex items-center justify-center">↳ Drop {stageIdx + 1}</span>
-                              <Input type="number" step="0.5" placeholder="Weight" value={stage.weight_kg ?? ''} onChange={(e) => updateDropStage(exIdx, setIdx, stageIdx, 'weight_kg', e.target.value)} />
-                              <Input type="number" placeholder="Reps" value={stage.reps ?? ''} onChange={(e) => updateDropStage(exIdx, setIdx, stageIdx, 'reps', e.target.value)} />
-                              <span />
-                              <Button type="button" variant="ghost" size="sm" onClick={() => removeDropStage(exIdx, setIdx, stageIdx)} aria-label="Remove drop stage">
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {(set.drop_stages ?? []).map((stage, stageIdx) => (
+                                <div key={stageIdx} className="ml-2 border-l-2 border-primary/30 pl-3 space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-label text-[0.75rem] normal-case">Drop {stageIdx + 1}</span>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => removeDropStage(exIdx, 0, roundIdx, stageIdx)} aria-label="Remove drop stage">
+                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                    </Button>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Input type="number" step="0.5" placeholder="Weight (kg)" value={stage.weight_kg ?? ''} onChange={(e) => updateDropStage(exIdx, 0, roundIdx, stageIdx, 'weight_kg', e.target.value)} />
+                                    <Input type="number" placeholder="Reps" value={stage.reps ?? ''} onChange={(e) => updateDropStage(exIdx, 0, roundIdx, stageIdx, 'reps', e.target.value)} />
+                                  </div>
+                                </div>
+                              ))}
+                              <Button type="button" variant="ghost" size="sm" onClick={() => addDropStage(exIdx, 0, roundIdx)}>+ Drop set</Button>
                             </div>
                           ))}
-                          <Button type="button" variant="ghost" size="sm" onClick={() => addDropStage(exIdx, setIdx)}>+ Drop set</Button>
                         </div>
-                      ))}
-                    </div>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => addSet(exIdx)}>+ Add set</Button>
+
+                        <div className="hidden md:block space-y-2">
+                          <div className="grid grid-cols-5 gap-2 text-label text-[0.75rem] normal-case px-1">
+                            <span>Set</span><span>Weight (kg)</span><span>{repUnit(ex.members[0].exercise_name) === 'rounds' ? 'Rounds' : 'Reps'}</span><span>Rest (s)</span><span></span>
+                          </div>
+                          {ex.members[0].sets.map((set, roundIdx) => (
+                            <div key={roundIdx} className="space-y-1">
+                              <div className="grid grid-cols-5 gap-2">
+                                <Input value={set.set_number} disabled className="text-center" />
+                                <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateMemberSet(exIdx, 0, roundIdx, 'weight_kg', e.target.value)} />
+                                <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateMemberSet(exIdx, 0, roundIdx, 'reps', e.target.value)} />
+                                <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateMemberSet(exIdx, 0, roundIdx, 'rest_seconds', e.target.value)} />
+                                {ex.members[0].sets.length > 1 ? (
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => removeRound(exIdx, roundIdx)} aria-label="Delete set">
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                ) : (
+                                  <span />
+                                )}
+                              </div>
+                              {(set.drop_stages ?? []).map((stage, stageIdx) => (
+                                <div key={stageIdx} className="grid grid-cols-5 gap-2">
+                                  <span className="text-meta text-xs flex items-center justify-center">↳ Drop {stageIdx + 1}</span>
+                                  <Input type="number" step="0.5" placeholder="Weight" value={stage.weight_kg ?? ''} onChange={(e) => updateDropStage(exIdx, 0, roundIdx, stageIdx, 'weight_kg', e.target.value)} />
+                                  <Input type="number" placeholder="Reps" value={stage.reps ?? ''} onChange={(e) => updateDropStage(exIdx, 0, roundIdx, stageIdx, 'reps', e.target.value)} />
+                                  <span />
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => removeDropStage(exIdx, 0, roundIdx, stageIdx)} aria-label="Remove drop stage">
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              ))}
+                              <Button type="button" variant="ghost" size="sm" onClick={() => addDropStage(exIdx, 0, roundIdx)}>+ Drop set</Button>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        {ex.members[0].sets.map((_, roundIdx) => (
+                          <div key={roundIdx} className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium">Round {roundIdx + 1}</p>
+                              {ex.members[0].sets.length > 1 && (
+                                <Button type="button" variant="ghost" size="sm" onClick={() => removeRound(exIdx, roundIdx)} aria-label="Delete round">
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+                            </div>
+                            {ex.members.map((member, memberIdx) => {
+                              const set = member.sets[roundIdx]
+                              if (!set) return null
+                              return (
+                                <div key={memberIdx} className="rounded-lg border border-border/60 bg-background/40 p-3 space-y-2">
+                                  <p className="text-sm font-medium">
+                                    Set {set.set_number} of {member.exercise_name || `Exercise ${memberIdx + 1}`}
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                      <span className="text-label text-[0.75rem] normal-case">Weight (kg)</span>
+                                      <Input type="number" step="0.5" placeholder="15" value={set.weight_kg ?? ''} onChange={(e) => updateMemberSet(exIdx, memberIdx, roundIdx, 'weight_kg', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <span className="text-label text-[0.75rem] normal-case">Reps</span>
+                                      <Input type="number" placeholder="10" value={set.reps ?? ''} onChange={(e) => updateMemberSet(exIdx, memberIdx, roundIdx, 'reps', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1 col-span-2">
+                                      <span className="text-label text-[0.75rem] normal-case">Rest (seconds)</span>
+                                      <Input type="number" placeholder="60" value={set.rest_seconds ?? ''} onChange={(e) => updateMemberSet(exIdx, memberIdx, roundIdx, 'rest_seconds', e.target.value)} />
+                                    </div>
+                                  </div>
+                                  {(set.drop_stages ?? []).map((stage, stageIdx) => (
+                                    <div key={stageIdx} className="ml-2 border-l-2 border-primary/30 pl-3 space-y-1">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-label text-[0.75rem] normal-case">Drop {stageIdx + 1}</span>
+                                        <Button type="button" variant="ghost" size="sm" onClick={() => removeDropStage(exIdx, memberIdx, roundIdx, stageIdx)} aria-label="Remove drop stage">
+                                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                        </Button>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <Input type="number" step="0.5" placeholder="Weight (kg)" value={stage.weight_kg ?? ''} onChange={(e) => updateDropStage(exIdx, memberIdx, roundIdx, stageIdx, 'weight_kg', e.target.value)} />
+                                        <Input type="number" placeholder="Reps" value={stage.reps ?? ''} onChange={(e) => updateDropStage(exIdx, memberIdx, roundIdx, stageIdx, 'reps', e.target.value)} />
+                                      </div>
+                                    </div>
+                                  ))}
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => addDropStage(exIdx, memberIdx, roundIdx)}>+ Drop set</Button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Button type="button" variant="ghost" size="sm" onClick={() => addRound(exIdx)}>+ Add set</Button>
                   </div>
                 </div>
-                )
-              })}
+              ))}
 
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={addExercise}>+ Add exercise</Button>
@@ -608,19 +670,11 @@ export function WorkoutsPage() {
                     <div key={ex.id}>
                       <p className="font-semibold text-base text-foreground">{ex.exercise_name}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {ex.sets.flatMap((s) =>
-                          isComboExercise(ex.exercise_name)
-                            ? formatComboSetLines(ex.exercise_name, s).map((line, i) => (
-                                <span key={`${s.id}-${i}`} className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-1.5 text-sm font-medium text-foreground">
-                                  {line}
-                                </span>
-                              ))
-                            : [
-                                <span key={s.id} className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-1.5 text-sm font-medium text-foreground">
-                                  {formatExerciseSet(ex.exercise_name, s)}
-                                </span>,
-                              ],
-                        )}
+                        {ex.sets.map((s) => (
+                          <span key={s.id} className="rounded-lg border border-border/60 bg-secondary/40 px-3 py-1.5 text-sm font-medium text-foreground">
+                            {formatExerciseSet(ex.exercise_name, s)}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   ))}

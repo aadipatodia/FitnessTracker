@@ -26,13 +26,6 @@ export function parseComboSegments(exerciseName: string): Array<[number, string]
   return segments
 }
 
-export function buildComboName(segments: Array<{ count: number; name: string }>): string {
-  return segments
-    .filter((s) => s.name.trim())
-    .map((s) => `${s.count || 1} ${s.name.trim()}`)
-    .join(' + ')
-}
-
 function pluralizeMovement(total: number, label: string): string {
   if (total === 1 || label.endsWith('s')) return label
   return `${label}s`
@@ -85,15 +78,4 @@ export function formatExerciseSet(
 
   if (chain.length) return [base, ...chain].join(' → ')
   return base
-}
-
-/** For a combo set, one "Set N of <exercise>" line per component exercise. */
-export function formatComboSetLines(
-  exerciseName: string,
-  set: { set_number: number; weight_kg?: number | null },
-): string[] {
-  return parseComboSegments(exerciseName).map(([count, label]) => {
-    const weightPart = set.weight_kg ? `${set.weight_kg}kg × ` : ''
-    return `Set ${set.set_number} of ${label} — ${weightPart}${count} reps`
-  })
 }
