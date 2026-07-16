@@ -438,21 +438,23 @@ export function WorkoutsPage() {
               {exercises.map((ex, exIdx) => (
                 <div key={exIdx} className="rounded-lg border border-border p-4 space-y-3">
                   {!ex.isCombo ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Input
                         value={ex.members[0].exercise_name}
                         onChange={(e) => updateMemberName(exIdx, 0, e.target.value)}
                         placeholder="Exercise name (e.g. Preacher Curl)"
-                        className="flex-1"
+                        className="min-w-0 flex-1"
                       />
-                      <Button type="button" variant="outline" size="sm" onClick={() => toggleCombo(exIdx)}>
-                        Combination exercise
-                      </Button>
-                      {exercises.length > 1 && (
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeExercise(exIdx)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                      <div className="flex items-center gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => toggleCombo(exIdx)} className="flex-1 sm:flex-none">
+                          Combination exercise
                         </Button>
-                      )}
+                        {exercises.length > 1 && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeExercise(exIdx)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2 rounded-lg border border-dashed border-primary/40 p-3">
@@ -472,7 +474,7 @@ export function WorkoutsPage() {
                             value={member.exercise_name}
                             onChange={(e) => updateMemberName(exIdx, memberIdx, e.target.value)}
                             placeholder={memberIdx === 0 ? 'e.g. Incline Bicep Curl' : 'e.g. Hammer Curl'}
-                            className="flex-1"
+                            className="min-w-0 flex-1"
                           />
                           {ex.members.length > 1 && (
                             <Button type="button" variant="ghost" size="sm" onClick={() => removeComboMember(exIdx, memberIdx)} aria-label="Remove exercise from combo">
