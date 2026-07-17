@@ -1,11 +1,11 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.activity_log import log_action
 from app.auth import get_current_user
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.models.user import User
 from app.models.workout import Workout, WorkoutExercise, ExerciseSet, DropSetStage
 from app.schemas import WorkoutCreate, WorkoutResponse, ExerciseResponse, SetResponse, DropStageResponse
@@ -21,9 +21,19 @@ from app.services.workout_calories import estimate_workout_calories
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
 
+async def _refresh_progress_in_background(user_id: int, exercise_keys: list[str]) -> None:
+    """Runs after the response is sent — AI target refresh isn't needed for the save itself."""
+    db = SessionLocal()
+    try:
+        await ensure_progress_current(db, user_id, exercise_keys)
+    finally:
+        db.close()
+
+
 @router.post("", response_model=WorkoutResponse)
 async def create_workout(
     data: WorkoutCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -89,7 +99,7 @@ async def create_workout(
     )
     exercise_keys = resync_exercises_from_workout(db, current_user.id, workout)
     db.commit()
-    await ensure_progress_current(db, current_user.id, exercise_keys)
+    background_tasks.add_task(_refresh_progress_in_background, current_user.id, exercise_keys)
 
     body_weight = get_user_body_weight_kg(db, current_user.id)
     response = _to_response(workout, body_weight)

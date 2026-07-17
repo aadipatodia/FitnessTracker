@@ -285,7 +285,8 @@ export function WorkoutsPage() {
       if (workout.workout_date === viewDate) {
         setWorkouts([workout, ...workouts])
       } else {
-        await loadDay(viewDate)
+        setViewDate(workout.workout_date)
+        await loadDay(workout.workout_date)
       }
       setShowForm(false)
       setExercises([blankExercise()])
