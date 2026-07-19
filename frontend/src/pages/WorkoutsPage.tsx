@@ -20,6 +20,11 @@ interface ExerciseForm {
   members: ComboMember[]
 }
 
+interface AmrapExercise {
+  name: string
+  reps: number | undefined
+}
+
 function blankSet(setNumber: number): SetCreate {
   return { set_number: setNumber, weight_kg: undefined, reps: undefined, rest_seconds: 60 }
 }
@@ -77,6 +82,12 @@ export function WorkoutsPage() {
     workoutDraft?.exercises ?? [blankExercise()],
   )
   const [showForm, setShowForm] = useState(Boolean(workoutDraft))
+
+  const [logMode, setLogMode] = useState<'standard' | 'amrap'>('standard')
+  const [amrapExercises, setAmrapExercises] = useState<AmrapExercise[]>([{ name: '', reps: undefined }])
+  const [amrapRounds, setAmrapRounds] = useState<number | undefined>(undefined)
+  const [amrapRoundMinutes, setAmrapRoundMinutes] = useState<number | undefined>(undefined)
+  const [amrapSetsCompleted, setAmrapSetsCompleted] = useState<(number | undefined)[]>([])
 
   const [cardioDate, setCardioDate] = useState(cardioDraft?.cardioDate ?? todayISO())
   const [cardioType, setCardioType] = useState(cardioDraft?.cardioType ?? '')
@@ -246,6 +257,70 @@ export function WorkoutsPage() {
     setExercises(updated)
   }
 
+  const addAmrapExercise = () => {
+    setAmrapExercises([...amrapExercises, { name: '', reps: undefined }])
+  }
+
+  const removeAmrapExercise = (i: number) => {
+    setAmrapExercises(amrapExercises.filter((_, idx) => idx !== i))
+  }
+
+  const updateAmrapExerciseName = (i: number, value: string) => {
+    const updated = [...amrapExercises]
+    updated[i] = { ...updated[i], name: value }
+    setAmrapExercises(updated)
+  }
+
+  const updateAmrapExerciseReps = (i: number, value: string) => {
+    const updated = [...amrapExercises]
+    updated[i] = { ...updated[i], reps: value ? parseFloat(value) : undefined }
+    setAmrapExercises(updated)
+  }
+
+  const updateAmrapRounds = (value: string) => {
+    const rounds = value ? parseInt(value, 10) : undefined
+    setAmrapRounds(rounds)
+    const len = rounds ?? 0
+    setAmrapSetsCompleted(Array.from({ length: len }, (_, i) => amrapSetsCompleted[i]))
+  }
+
+  const updateAmrapSetCompleted = (i: number, value: string) => {
+    const updated = [...amrapSetsCompleted]
+    updated[i] = value ? parseFloat(value) : undefined
+    setAmrapSetsCompleted(updated)
+  }
+
+  const resetAmrapState = () => {
+    setAmrapExercises([{ name: '', reps: undefined }])
+    setAmrapRounds(undefined)
+    setAmrapRoundMinutes(undefined)
+    setAmrapSetsCompleted([])
+    setLogMode('standard')
+  }
+
+  const buildAmrapExercisePayload = () => {
+    const rounds = amrapRounds ?? 0
+    const timeSeconds = amrapRoundMinutes ? Math.round(amrapRoundMinutes * 60) : undefined
+    return amrapExercises
+      .filter((ex) => ex.name.trim())
+      .map((ex, i) => ({
+        exercise_name: ex.name.trim(),
+        order_index: i,
+        sets: Array.from({ length: rounds }, (_, r) => ({
+          set_number: r + 1,
+          reps: Math.round((ex.reps ?? 0) * (amrapSetsCompleted[r] ?? 0)) || undefined,
+          time_seconds: timeSeconds,
+        })),
+      }))
+  }
+
+  const buildAmrapSummary = () => {
+    const rounds = amrapRounds ?? 0
+    if (!rounds) return ''
+    const perRound = amrapSetsCompleted.map((v, i) => `R${i + 1}: ${v ?? 0}`).join(', ')
+    return `AMRAP — ${rounds} round${rounds === 1 ? '' : 's'} × ${amrapRoundMinutes ?? 0} min | Sets completed — ${perRound}`
+  }
+
   const removeDropStage = (exIdx: number, memberIdx: number, roundIdx: number, stageIdx: number) => {
     const updated = [...exercises]
     const members = [...updated[exIdx].members]
@@ -264,23 +339,26 @@ export function WorkoutsPage() {
     e.preventDefault()
     setSaving(true)
     try {
+      const isAmrap = logMode === 'amrap'
       const workout = await api.createWorkout({
         workout_date: workoutDate,
-        name: workoutName || undefined,
-        notes: notes || undefined,
-        exercises: exercises
-          .flatMap(ex => ex.members.filter(m => m.exercise_name.trim()))
-          .map((member, i) => ({
-            exercise_name: member.exercise_name,
-            order_index: i,
-            sets: member.sets.map(s => ({
-              set_number: s.set_number,
-              weight_kg: s.weight_kg,
-              reps: s.reps,
-              rest_seconds: s.rest_seconds,
-              drop_stages: s.drop_stages,
-            })),
-          })),
+        name: workoutName || (isAmrap ? 'AMRAP' : undefined),
+        notes: (isAmrap ? [buildAmrapSummary(), notes].filter(Boolean).join('\n') : notes) || undefined,
+        exercises: isAmrap
+          ? buildAmrapExercisePayload()
+          : exercises
+              .flatMap(ex => ex.members.filter(m => m.exercise_name.trim()))
+              .map((member, i) => ({
+                exercise_name: member.exercise_name,
+                order_index: i,
+                sets: member.sets.map(s => ({
+                  set_number: s.set_number,
+                  weight_kg: s.weight_kg,
+                  reps: s.reps,
+                  rest_seconds: s.rest_seconds,
+                  drop_stages: s.drop_stages,
+                })),
+              })),
       })
       if (workout.workout_date === viewDate) {
         setWorkouts([workout, ...workouts])
@@ -292,6 +370,7 @@ export function WorkoutsPage() {
       setExercises([blankExercise()])
       setWorkoutName('')
       setNotes('')
+      resetAmrapState()
       clearDraft(WORKOUT_DRAFT_KEY)
     } catch (err) {
       console.error(err)
@@ -305,6 +384,7 @@ export function WorkoutsPage() {
     setExercises([blankExercise()])
     setWorkoutName('')
     setNotes('')
+    resetAmrapState()
     clearDraft(WORKOUT_DRAFT_KEY)
   }
 
@@ -436,6 +516,98 @@ export function WorkoutsPage() {
                 </div>
               </div>
 
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={logMode === 'standard' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setLogMode('standard')}
+                >
+                  Standard
+                </Button>
+                <Button
+                  type="button"
+                  variant={logMode === 'amrap' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setLogMode('amrap')}
+                >
+                  AMRAP
+                </Button>
+              </div>
+
+              {logMode === 'amrap' ? (
+                <div className="space-y-4 rounded-lg border border-border p-4">
+                  <div className="space-y-2">
+                    <Label>Exercises in the circuit (1 round = one pass through all of these)</Label>
+                    {amrapExercises.map((ex, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          value={ex.name}
+                          onChange={(e) => updateAmrapExerciseName(i, e.target.value)}
+                          placeholder="e.g. Burpees"
+                          className="min-w-0 flex-1"
+                        />
+                        <Input
+                          type="number"
+                          value={ex.reps ?? ''}
+                          onChange={(e) => updateAmrapExerciseReps(i, e.target.value)}
+                          placeholder="Reps"
+                          className="w-24"
+                        />
+                        {amrapExercises.length > 1 && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeAmrapExercise(i)} aria-label="Remove exercise">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    <Button type="button" variant="ghost" size="sm" onClick={addAmrapExercise}>+ Add exercise</Button>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Number of rounds</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={amrapRounds ?? ''}
+                        onChange={(e) => updateAmrapRounds(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Time per round (minutes)</Label>
+                      <Input
+                        type="number"
+                        step="0.5"
+                        min={0}
+                        value={amrapRoundMinutes ?? ''}
+                        onChange={(e) => setAmrapRoundMinutes(e.target.value ? parseFloat(e.target.value) : undefined)}
+                      />
+                    </div>
+                  </div>
+
+                  {amrapSetsCompleted.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Sets completed per round (full passes through the circuit)</Label>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {amrapSetsCompleted.map((val, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-sm text-meta w-16 shrink-0">Round {i + 1}</span>
+                            <Input
+                              type="number"
+                              step="0.5"
+                              min={0}
+                              value={val ?? ''}
+                              onChange={(e) => updateAmrapSetCompleted(i, e.target.value)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+              <>
               {exercises.map((ex, exIdx) => (
                 <div key={exIdx} className="rounded-lg border border-border p-4 space-y-3">
                   {!ex.isCombo ? (
@@ -643,6 +815,8 @@ export function WorkoutsPage() {
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={addExercise}>+ Add exercise</Button>
               </div>
+              </>
+              )}
 
               <div className="space-y-2">
                 <Label>Notes</Label>

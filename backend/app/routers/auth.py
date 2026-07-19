@@ -1,7 +1,7 @@
 import secrets
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.activity_log import log_action, log_failure
@@ -83,8 +83,17 @@ def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
+def _frontend_origin(request: Request) -> str:
+    """Prefer the browser's actual origin over the configured default, so a stale
+    FRONTEND_URL env var can never point the reset link at the wrong deployment."""
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    if origin:
+        return origin.rstrip("/").removesuffix("/reset-password").removesuffix("/forgot-password").removesuffix("/login")
+    return settings.FRONTEND_URL
+
+
 @router.post("/forgot-password", response_model=MessageResponse)
-def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(data: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user:
         log_failure(data.email, "request password reset", "account does not exist")
@@ -94,7 +103,7 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user.reset_token_expires_at = datetime.utcnow() + RESET_TOKEN_TTL
     db.commit()
 
-    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={user.reset_token}"
+    reset_link = f"{_frontend_origin(request)}/reset-password?token={user.reset_token}"
     sent = send_password_reset_email(user.email, reset_link)
     log_action(
         user,
