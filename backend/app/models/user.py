@@ -18,6 +18,8 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     exercise_name_clusters: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    reset_token: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    reset_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     goals: Mapped[list["FitnessGoal"]] = relationship("FitnessGoal", back_populates="user")
     workouts: Mapped[list["Workout"]] = relationship("Workout", back_populates="user")

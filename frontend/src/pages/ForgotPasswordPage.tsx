@@ -1,29 +1,27 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Target, Sparkles } from 'lucide-react'
-import { useAuth } from '@/context/AuthContext'
+import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AmbientBackground } from '@/components/AmbientBackground'
 
-export function LoginPage() {
+export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
-  const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      await login(email, password)
-      navigate('/')
+      const res = await api.forgotPassword(email)
+      setMessage(res.message)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -45,39 +43,33 @@ export function LoginPage() {
           <h1 className="text-4xl font-bold gradient-text font-display">FitAI Coach</h1>
           <p className="mt-3 flex items-center justify-center gap-1.5 text-body-secondary">
             <Sparkles className="h-3.5 w-3.5 text-primary/70" />
-            Your premium AI fitness companion
+            Reset your password
           </p>
         </div>
 
         <Card className="animate-fade-up stagger-2 border-primary/20">
           <CardHeader>
-            <CardTitle>Welcome back</CardTitle>
-            <CardDescription>Sign in to continue your fitness journey</CardDescription>
+            <CardTitle>Forgot password</CardTitle>
+            <CardDescription>Enter your email and we'll send you a reset link</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link to="/forgot-password" className="text-meta text-primary hover:text-accent transition-colors">
-                    Forgot password?
-                  </Link>
+            {message ? (
+              <p className="text-sm text-body-secondary animate-fade-in">{message}</p>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </div>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
-              {error && <p className="text-sm text-destructive animate-fade-in">{error}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Signing in...' : 'Sign in'}
-              </Button>
-            </form>
+                {error && <p className="text-sm text-destructive animate-fade-in">{error}</p>}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Sending...' : 'Send reset link'}
+                </Button>
+              </form>
+            )}
             <p className="mt-5 text-center text-meta">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-primary hover:text-accent transition-colors font-medium">
-                Sign up
+              <Link to="/login" className="text-primary hover:text-accent transition-colors font-medium">
+                Back to sign in
               </Link>
             </p>
           </CardContent>

@@ -67,6 +67,20 @@ class ApiClient {
     return this.request<User>('/auth/me')
   }
 
+  forgotPassword(email: string) {
+    return this.request<{ message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  resetPassword(token: string, new_password: string) {
+    return this.request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password }),
+    })
+  }
+
   // Goals
   createGoal(data: GoalCreate) {
     return this.request<Goal>('/goals', { method: 'POST', body: JSON.stringify(data) })

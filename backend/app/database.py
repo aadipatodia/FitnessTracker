@@ -20,6 +20,11 @@ def ensure_schema() -> None:
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(20)"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER"))
         conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS exercise_name_clusters JSON"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255)"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMP"))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_users_reset_token ON users (reset_token)"
+        ))
         conn.execute(text("ALTER TABLE diet_entries ADD COLUMN IF NOT EXISTS fibre_g FLOAT DEFAULT 0"))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS exercise_progress_summaries (
