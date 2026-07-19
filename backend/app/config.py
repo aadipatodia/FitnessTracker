@@ -1,12 +1,13 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Fixed JWT signing key — not loaded from env so tokens stay valid across deploys/restarts.
+SECRET_KEY = "fitai-coach-dev-secret-change-in-production"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     DATABASE_URL: str = "postgresql://fitai:fitai@localhost:5432/fitai_coach"
-    # Falls back to this dev value only when SECRET_KEY isn't set in the environment.
-    SECRET_KEY: str = "fitai-coach-dev-secret-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     GEMINI_API_KEY: str = ""
@@ -20,6 +21,10 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""
     SMTP_FROM_NAME: str = "FitAI"
+
+    @property
+    def SECRET_KEY(self) -> str:
+        return SECRET_KEY
 
 
 settings = Settings()
