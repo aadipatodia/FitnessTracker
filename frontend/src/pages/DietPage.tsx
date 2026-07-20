@@ -267,7 +267,7 @@ export function DietPage() {
       <ScrollReveal animation="blur-up">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center justify-center gap-2 sm:justify-start">
               <Camera className="h-4 w-4 text-primary" />
               Snap a meal
             </CardTitle>
@@ -290,7 +290,7 @@ export function DietPage() {
             />
 
             {!review && !analyzingPhoto && (
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap justify-center gap-3 sm:justify-start">
                 <Button type="button" onClick={() => cameraInputRef.current?.click()}>
                   <Camera className="h-4 w-4" />
                   Snap a meal
