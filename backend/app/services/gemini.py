@@ -168,6 +168,114 @@ Return ONLY valid JSON with no markdown:
     return await _generate_json_async("meal_nutrition", {"food_input": food_input}, prompt, fallback)
 
 
+class GeminiVisionError(Exception):
+    """Raised when a meal-photo analysis cannot produce a usable result."""
+
+
+def _generate_json_from_image(
+    operation: str,
+    image_bytes: bytes,
+    mime_type: str,
+    prompt: str,
+    *,
+    max_attempts: int = 2,
+) -> dict:
+    """Like _generate_json but for vision prompts — raises GeminiVisionError instead of
+    silently falling back, since callers must surface failures to the user rather than
+    saving a fabricated zero-calorie estimate."""
+    _configure_gemini()
+
+    if not settings.GEMINI_API_KEY:
+        raise GeminiVisionError("Photo analysis is unavailable — GEMINI_API_KEY is not configured.")
+
+    model = genai.GenerativeModel(settings.GEMINI_VISION_MODEL)
+    image_part = {"mime_type": mime_type, "data": image_bytes}
+    log_context = {"mime_type": mime_type, "image_size_bytes": len(image_bytes)}
+
+    last_error: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        started = time.perf_counter()
+        try:
+            response = model.generate_content([prompt, image_part])
+            elapsed_ms = (time.perf_counter() - started) * 1000
+            raw = response.text
+        except Exception as exc:
+            elapsed_ms = (time.perf_counter() - started) * 1000
+            _log_gemini_exchange(
+                operation,
+                log_context,
+                status="error",
+                duration_ms=elapsed_ms,
+                error=f"{exc.__class__.__name__}: {exc}",
+            )
+            raise GeminiVisionError(f"Gemini request failed: {exc}") from exc
+
+        try:
+            parsed = _parse_json_response(raw)
+        except (json.JSONDecodeError, ValueError) as exc:
+            last_error = exc
+            _log_gemini_exchange(
+                operation,
+                log_context,
+                status="retry" if attempt < max_attempts else "fallback",
+                duration_ms=elapsed_ms,
+                raw_response=raw,
+                error=f"{exc.__class__.__name__}: {exc}",
+            )
+            continue
+
+        _log_gemini_exchange(
+            operation,
+            log_context,
+            status="ok",
+            duration_ms=elapsed_ms,
+            raw_response=raw,
+            parsed=parsed,
+        )
+        return parsed
+
+    raise GeminiVisionError(
+        "Gemini returned an unreadable response twice — couldn't analyze this photo. Please try again."
+    ) from last_error
+
+
+async def analyze_meal_photo(image_bytes: bytes, mime_type: str) -> dict:
+    """Use Gemini vision to identify food items in a meal photo and estimate macros per item."""
+    prompt = f"""You are a nutrition expert analyzing a photo of a meal. Identify each distinct food item visible and estimate its quantity and macros.
+
+{INDIA_CONTEXT}
+
+Rules:
+- Identify every distinct food item visible (e.g. rice, dal, roti, sabzi, salad) as separate items — do not lump the whole plate into one item unless it truly is a single mixed dish.
+- Estimate a realistic portion for each item from what's visible (e.g. "2 rotis", "1 bowl (~150g)", "1 cup rice").
+- Use typical Indian portions and cooking methods (ghee/oil use, etc.) when estimating macros.
+- Make your best estimate even when uncertain rather than omitting an item.
+- Set "confidence": "high" if the photo is clear and items are easily identifiable; "medium" if there's some ambiguity (partial view, mixed dish, unclear portion size); "low" if the photo is blurry, poorly lit, or you are largely guessing.
+
+Return ONLY valid JSON with no markdown:
+{{
+  "items": [
+    {{
+      "name": "short display name",
+      "estimated_quantity": "e.g. 2 rotis, 1 bowl (~150g), 1 cup",
+      "calories": number,
+      "protein_g": number,
+      "carbs_g": number,
+      "fat_g": number
+    }}
+  ],
+  "total": {{
+    "calories": number,
+    "protein_g": number,
+    "carbs_g": number,
+    "fat_g": number
+  }},
+  "confidence": "low" | "medium" | "high"
+}}"""
+
+    return await asyncio.to_thread(_generate_json_from_image, "meal_photo", image_bytes, mime_type, prompt)
+
+
 async def estimate_cardio_calories(
     activity_name: str,
     duration_minutes: int,

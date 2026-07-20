@@ -132,6 +132,32 @@ class ApiClient {
     return this.request<void>(`/diet/logs/${id}`, { method: 'DELETE' })
   }
 
+  async analyzeMealPhoto(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const headers: Record<string, string> = {}
+    const token = this.getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    const res = await fetch(`${API_BASE}/diet/log-photo`, {
+      method: 'POST',
+      body: formData,
+      headers,
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Could not analyze photo' }))
+      const message = typeof err.detail === 'string' ? err.detail : 'Could not analyze photo'
+      throw new Error(message)
+    }
+
+    return res.json() as Promise<MealPhotoAnalysis>
+  }
+
+  logDietEntries(data: DietLogEntriesCreate) {
+    return this.request<DietLog>('/diet/log-entries', { method: 'POST', body: JSON.stringify(data) })
+  }
+
   // Body
   createBodyMetric(data: BodyMetricCreate) {
     return this.request<BodyMetric>('/body/metrics', { method: 'POST', body: JSON.stringify(data) })
@@ -419,6 +445,46 @@ export interface DietLog {
   total_carbs: number
   total_fat: number
   total_fibre: number
+}
+
+export interface MealPhotoItem {
+  name: string
+  estimated_quantity: string
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+}
+
+export interface MealPhotoTotals {
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+}
+
+export interface MealPhotoAnalysis {
+  items: MealPhotoItem[]
+  total: MealPhotoTotals
+  confidence: 'low' | 'medium' | 'high'
+}
+
+export interface DietEntryManualCreate {
+  food_name: string
+  quantity: number
+  unit: string
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+  fibre_g: number
+  source: string
+}
+
+export interface DietLogEntriesCreate {
+  log_date: string
+  meal_type?: string
+  entries: DietEntryManualCreate[]
 }
 
 export interface BodyMetricCreate {

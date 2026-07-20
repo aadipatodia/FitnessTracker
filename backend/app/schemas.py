@@ -248,6 +248,47 @@ class DietLogResponse(BaseModel):
         from_attributes = True
 
 
+# Photo meal logging
+class MealPhotoItem(BaseModel):
+    name: str
+    estimated_quantity: str
+    calories: float
+    protein_g: float
+    carbs_g: float
+    fat_g: float
+
+
+class MealPhotoTotals(BaseModel):
+    calories: float
+    protein_g: float
+    carbs_g: float
+    fat_g: float
+
+
+class MealPhotoAnalysisResponse(BaseModel):
+    items: list[MealPhotoItem]
+    total: MealPhotoTotals
+    confidence: str  # low | medium | high
+
+
+class DietEntryManualCreate(BaseModel):
+    food_name: str
+    quantity: float = 1.0
+    unit: str = "serving"
+    calories: float = 0
+    protein_g: float = 0
+    carbs_g: float = 0
+    fat_g: float = 0
+    fibre_g: float = 0
+    source: str = "gemini_photo"  # gemini_photo | manual
+
+
+class DietLogEntriesCreate(BaseModel):
+    log_date: date
+    meal_type: Optional[str] = None
+    entries: list[DietEntryManualCreate] = Field(min_length=1)
+
+
 # Body metrics
 class BodyMetricCreate(BaseModel):
     recorded_date: date
